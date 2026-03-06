@@ -1,0 +1,13 @@
+modules = ["php-8.2", "web", "python-3.12", "dotnet-7.0"]
+[agent]
+expertMode = true
+
+[nix]
+channel = "stable-25_05"
+
+[userenv]
+
+[userenv.shared]
+SECRET_KEY = "8f096924ef4f05658626bf76d4a43ce461499d6652849d7e7d77b77df7a18947"
+DATABASE_NAME = "SKYLINE"
+DB_DRIVER = "mongo"
