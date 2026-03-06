@@ -9,5 +9,37 @@ channel = "stable-25_05"
 
 [userenv.shared]
 SECRET_KEY = "8f096924ef4f05658626bf76d4a43ce461499d6652849d7e7d77b77df7a18947"
-DATABASE_NAME = "SKYLINE"
+DATABASE_NAME = "skyline"
 DB_DRIVER = "mongo"
+
+[workflows]
+runButton = "Project"
+
+[[workflows.workflow]]
+name = "Project"
+mode = "parallel"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Start application"
+
+[[workflows.workflow]]
+name = "Start application"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "python app.py"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 80
+
+[deployment]
+deploymentTarget = "autoscale"
+run = ["sh", "-c", "/nix/store/mnjsfz2lyr84m1d51pygk55i4wa1lbc3-python3-wrapper/bin/python3 $file"]
