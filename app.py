@@ -10,6 +10,11 @@ def create_app():
     app = Flask(__name__)
     app.config.from_object(Config)
 
+    @app.route('/')
+    def index():
+        from flask import redirect, url_for
+        return redirect(url_for('auth.login'))
+
     @app.route('/health')
     def health():
         return "OK", 200
