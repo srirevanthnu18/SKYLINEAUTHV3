@@ -33,7 +33,7 @@ def handle_api():
     # Fetch app
     app = db.db.apps.find_one({'name': name, 'owner_id': db._to_id(ownerid)})
     if not app:
-        return "KeyAuth_Invalid" # Specific SDK error string
+        return "KeyAuth_Invalid" # Specific SDK error string (Note: SDKs might crash without signature)
     
     secret = app['secret_key']
     
@@ -83,23 +83,27 @@ def handle_api():
                 "numOnlineUsers": str(stats['numOnlineUsers']),
                 "numKeys": str(stats['numKeys']),
                 "version": app['version'],
-                "customerPanelLink": "https://SKYLINE.cc/"
+                "customerPanelLink": "ttps://skylineauthv-2--keyauth-server.replit.app"
             },
-            "newSession": True,
-            "nonce": secrets.token_hex(16)
+            "newsession": True, # For standard SDKs
+            "newSession": True, # For AotForms and others
         }
         return signed_response(resp, secret)
 
-    # ── Pre-Authenticated Actions ─────────────────────────────────────
+    # ── Actions requiring session ────────────────────────────────────
     sessionid = data.get('sessionid')
     session = db.get_session(sessionid)
     if not session:
-        return jsonify({"success": False, "message": "Session not found."})
+        return signed_response({"success": False, "message": "Session not found."}, secret)
     
+    # Session enckey (sentKey + "-" + secret)
+    sent_key = session.get('sent_key')
+    resp_signing_key = f"{sent_key}-{secret}" if sent_key else secret
+
     # Check if session expired
     expiry = app.get('session_expiry', 3600)
     if (datetime.utcnow() - session['created_at']).total_seconds() > expiry:
-        return jsonify({"success": False, "message": "Session expired."})
+        return signed_response({"success": False, "message": "Session expired."}, resp_signing_key)
     
     # Signing key for all subsequent responses
     enckey_sent = session.get('sent_key')
@@ -239,12 +243,21 @@ def signed_response(data, key):
     return response
 
 def format_user_info(user, ip):
+    expiry_ts = str(int(user['expiry'].timestamp())) if user.get('expiry') else "0"
+    timeleft_sec = str(int((user['expiry'] - datetime.utcnow()).total_seconds())) if user.get('expiry') else "0"
+    
     return {
         "username": user['username'],
         "ip": ip,
         "hwid": user.get('hwid', ''),
         "createdate": str(int(user['created_at'].timestamp())) if user.get('created_at') else "0",
         "lastlogin": str(int(datetime.utcnow().timestamp())),
-        "subscriptions": [{"subscription": "default", "key": user['username'], "expiry": str(int(user['expiry'].timestamp())), "timeleft": str(int((user['expiry'] - datetime.utcnow()).total_seconds()))}] if user.get('expiry') else []
+        "subscriptions": [
+            {
+                "subscription": "default", 
+                "expiry": expiry_ts, 
+                "timeleft": timeleft_sec
+            }
+        ] if user.get('expiry') else []
     }
 
