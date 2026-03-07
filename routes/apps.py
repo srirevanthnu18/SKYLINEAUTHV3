@@ -117,7 +117,8 @@ def update_settings(app_id):
         'app_disabled_msg': request.form.get('app_disabled_msg'),
         'download_link': request.form.get('download_link'),
         'session_expiry': int(request.form.get('session_expiry', 3600)),
-        'server_hash': request.form.get('server_hash')
+        'server_hash': request.form.get('server_hash'),
+        'minHwid': int(request.form.get('min_hwid', 0))
     }
     db.update_app_settings(app_id, data)
     flash('Application settings updated.', 'success')
