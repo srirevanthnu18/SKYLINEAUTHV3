@@ -18,13 +18,10 @@
         </div>
 
         <!-- Logo -->
-        <div class="login-logo">
-            <div class="login-logo-icon">
-                <i class="fas fa-shield-alt"></i>
-            </div>
-            <span class="login-title">SKYLINE</span>
+        <div class="login-logo" style="flex-direction:column; gap:6px;">
+            <img src="/static/uploads/logo.png" alt="SKYLINE" style="width:110px; height:110px; border-radius:50%; object-fit:cover; box-shadow:0 0 28px rgba(0,217,255,0.35), 0 0 8px rgba(124,58,237,0.4);">
         </div>
-        <p class="login-subtitle">Authentication Management System</p>
+        <p class="login-subtitle" style="margin-top:10px;">Authentication Management System</p>
 
         <!-- Flash Messages -->
         {% with messages = get_flashed_messages(with_categories=true) %}
