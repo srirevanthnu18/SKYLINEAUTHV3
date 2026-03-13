@@ -136,7 +136,7 @@ def download_sdk(app_id, language):
         return redirect(url_for('apps.index'))
     
     # Build API URL
-    api_url = f"{request.scheme}://{request.host}/api/v1"
+    api_url = f"{request.scheme}://{request.host}/api/1.2"
     version = app.get('version', '1.0.0')
     
     # SDK templates directory
@@ -144,9 +144,9 @@ def download_sdk(app_id, language):
     
     # Map language to file info
     sdk_files = {
-        'python': ('SKYLINE_sdk.py', 'text/x-python', f'{app["name"]}_sdk.py'),
-        'csharp': ('SKYLINE.cs', 'text/plain', 'SKYLINE.cs'),
-        'cpp': ('SKYLINE.hpp', 'text/plain', 'SKYLINE.hpp'),
+        'python': ('neutron_sdk.py', 'text/x-python', f'{app["name"]}_sdk.py'),
+        'csharp': ('KeyAuth.cs', 'text/plain', 'KeyAuth.cs'),
+        'cpp': ('KeyAuth.hpp', 'text/plain', 'KeyAuth.hpp'),
     }
     
     if language not in sdk_files:

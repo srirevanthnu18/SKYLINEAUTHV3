@@ -23,6 +23,7 @@ class Database:
         self.db.admins.create_index('username', unique=True)
         self.db.apps.create_index('secret_key', unique=True)
         self.db.app_users.create_index('key', unique=True)
+        self.db.app_users.create_index('username', sparse=True)
         self.db.sessions.create_index('session_id', unique=True)
         self.db.sessions.create_index('created_at', expireAfterSeconds=86400) # Auto-delete sessions after 24h
 
@@ -150,21 +151,25 @@ class Database:
                 'server_hash': None,
                 'app_disabled_msg': "Application is currently disabled.",
                 'download_link': "",
-                'force_encryption': False, # Setting to False by default for easier initial testing
-                'session_expiry': 3600
+                'force_encryption': False,
+                'session_expiry': 3600,
+                'minHwid': 0
             }
             res = self.db.apps.insert_one(doc)
             return str(res.inserted_id)
+
+
 
     def update_app_settings(self, app_id, data):
         if self.mode == 'mongo':
             oid = self._to_id(app_id)
             update_fields = {}
             allowed = [
-                'name', 'version', 'is_active', 'is_paused', 
-                'hwid_check', 'vpn_block', 'hash_check', 
-                'app_disabled_msg', 'download_link', 
-                'force_encryption', 'session_expiry', 'server_hash'
+                'name', 'version', 'is_active', 'is_paused',
+                'hwid_check', 'vpn_block', 'hash_check',
+                'app_disabled_msg', 'download_link',
+                'force_encryption', 'session_expiry', 'server_hash',
+                'minHwid'
             ]
             for field in allowed:
                 if field in data:
@@ -519,72 +524,120 @@ class Database:
 
     # ── API auth (for external app integration) ──────────────────────
 
-    def api_login(self, app_secret, key, password, hwid=''):
+    def _apply_hwid(self, user, hwid, app):
+        """Apply HWID check/lock logic. Returns (user, error)."""
+        if not app.get('hwid_check', True):
+            return user, None
+        if not hwid:
+            return user, None
+        stored_hwid = user.get('hwid') or ''
+        if stored_hwid and stored_hwid != hwid:
+            return None, 'Hardware ID mismatch'
+        if not stored_hwid:
+            self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'hwid': hwid}})
+            user['hwid'] = hwid
+        return user, None
+
+    def api_login(self, app_secret, username, password, hwid=''):
+        """Authenticate a registered user account (username + password)."""
         if self.mode == 'mongo':
-            app = self.db.apps.find_one({'secret_key': app_secret, 'is_active': True})
+            app = self.db.apps.find_one({'secret_key': app_secret})
             if not app:
                 return None, 'Invalid application'
-            user = self.db.app_users.find_one({'app_id': app['_id'], 'key': key, 'is_active': True})
+
+            # Look up by username field first (registered accounts)
+            user = self.db.app_users.find_one({
+                'app_id': app['_id'],
+                'username': username,
+                'is_active': True
+            })
+            # Fallback: allow login using the raw key as username (unregistered/key-only accounts)
             if not user:
-                return None, 'Invalid credentials'
-            
-            # If a password is provided, verify it. 
-            # If not provided, it's a license-only login.
-            if password and not check_password_hash(user.get('password', ''), password):
-                return None, 'Invalid credentials'
-            
+                user = self.db.app_users.find_one({
+                    'app_id': app['_id'],
+                    'key': username,
+                    'is_active': True
+                })
+            if not user:
+                return None, 'Invalid username or password'
+
+            if not check_password_hash(user.get('password', ''), password):
+                return None, 'Invalid username or password'
+
             if user.get('expiry') and user['expiry'] < self._now():
                 return None, 'Subscription expired'
-            if user.get('hwid_lock', True):
-                if user.get('hwid') and user['hwid'] != hwid and hwid:
-                    return None, 'HWID mismatch'
-                if not user.get('hwid') and hwid:
-                    self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'hwid': hwid}})
-                    user['hwid'] = hwid
-            
-            # Update last login for online users tracking
+
+            user, err = self._apply_hwid(user, hwid, app)
+            if err:
+                return None, err
+
             self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'last_login': self._now()}})
-            
+            return user, None
+
+    def api_license(self, app_secret, license_key, hwid=''):
+        """Authenticate directly with a license key (no username/password needed)."""
+        if self.mode == 'mongo':
+            app = self.db.apps.find_one({'secret_key': app_secret})
+            if not app:
+                return None, 'Invalid application'
+
+            user = self.db.app_users.find_one({
+                'app_id': app['_id'],
+                'key': license_key,
+                'is_active': True
+            })
+            if not user:
+                return None, 'Invalid license key'
+
+            if user.get('expiry') and user['expiry'] < self._now():
+                return None, 'License expired'
+
+            user, err = self._apply_hwid(user, hwid, app)
+            if err:
+                return None, err
+
+            self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'last_login': self._now()}})
             return user, None
 
     def api_register(self, app_secret, username, password, license_key, hwid=''):
+        """Convert an unused license key into a registered user account."""
         if self.mode == 'mongo':
-            app = self.db.apps.find_one({'secret_key': app_secret, 'is_active': True})
+            app = self.db.apps.find_one({'secret_key': app_secret})
             if not app:
                 return None, 'Invalid application'
-            
-            # Find the license key
-            key_data = self.db.app_users.find_one({'app_id': app['_id'], 'key': license_key, 'is_active': True})
+
+            # Username must not already be taken
+            if self.db.app_users.find_one({'app_id': app['_id'], 'username': username}):
+                return None, 'Username already taken'
+
+            # Find the license key — must exist, be active, and NOT yet have a username (unused)
+            key_data = self.db.app_users.find_one({
+                'app_id': app['_id'],
+                'key': license_key,
+                'is_active': True
+            })
             if not key_data:
                 return None, 'Invalid license key'
-            
-            # Check if key is already redeemed (in KeyAuth, if it has a username/password, it's redeemed)
-            # Actually, in this unified model, a key IS the user. 
-            # If it already has a "username" (which is the key field currently), we check if it's been "activated".
-            # For "register", we usually want to transform a KEY into a USER.
-            
-            # Let's assume registration means taking a KEY and setting its password/username.
-            # But the 'key' field is the primary login.
-            # If the user wants "Accounts", they register with a username/password using a key.
-            
-            # Simple implementation: 
-            # 1. Verify key exists and isn't expired.
-            # 2. Check if a user with that 'username' ALREADY exists.
-            if self.db.app_users.find_one({'app_id': app['_id'], 'username': username}):
-                return None, 'Username already exists'
-            
-            # In standard KeyAuth, 'register' often means:
-            # - Use a KEY (license) to create an ACCOUNT (username/password).
-            # We can update the key_data to set the username/password.
+            if key_data.get('username'):
+                return None, 'License key already used'
+
+            if key_data.get('expiry') and key_data['expiry'] < self._now():
+                return None, 'License key expired'
+
+            # Apply HWID to the new account
+            new_hwid = key_data.get('hwid') or hwid or ''
+
             self.db.app_users.update_one(
                 {'_id': key_data['_id']},
                 {'$set': {
                     'username': username,
                     'password': generate_password_hash(password),
-                    'hwid': hwid if not key_data.get('hwid') else key_data['hwid'],
+                    'hwid': new_hwid,
                     'last_login': self._now()
                 }}
             )
+            key_data['username'] = username
+            key_data['hwid'] = new_hwid
             return key_data, None
 
 
