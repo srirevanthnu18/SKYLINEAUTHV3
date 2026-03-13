@@ -1,8 +1,10 @@
-# Updated for GitHub sync
 from flask import Flask
+from flask_socketio import SocketIO
 
 from config import Config
 from models import db
+
+socketio = SocketIO()
 
 
 def create_app():
@@ -21,6 +23,14 @@ def create_app():
 
     print("Initializing database...")
     db.init_app(app)
+    db._ensure_chat_indexes()
+
+    socketio.init_app(
+        app,
+        async_mode='eventlet',
+        cors_allowed_origins='*',
+        manage_session=False,
+    )
 
     try:
         print("Registering blueprints...")
@@ -35,6 +45,7 @@ def create_app():
         from routes.api import api_bp
         from routes.discord_mgmt import discord_mgmt_bp
         from routes.apps_extra import apps_extra_bp
+        from routes.chat import chat_bp
 
         app.register_blueprint(auth_bp)
         app.register_blueprint(dashboard_bp)
@@ -47,6 +58,10 @@ def create_app():
         app.register_blueprint(api_bp)
         app.register_blueprint(discord_mgmt_bp)
         app.register_blueprint(apps_extra_bp)
+        app.register_blueprint(chat_bp)
+
+        from socket_events import register_events
+        register_events(socketio, db)
 
         print("App created successfully.")
         return app
@@ -60,4 +75,4 @@ def create_app():
 application = create_app()
 
 if __name__ == '__main__':
-    application.run(debug=True, host='0.0.0.0', port=5000)
+    socketio.run(application, debug=True, host='0.0.0.0', port=5000)

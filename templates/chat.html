@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}SKYLINE — Messages{% endblock %}
+{% block page_title %}Messages{% endblock %}
+
+{% block content %}
+<script>
+window.CHAT_ME = {
+    username: {{ me.username | tojson }},
+    role: {{ me.role | tojson }}
+};
+window.CHAT_ROOM = {{ room_id | tojson if active_contact else 'null' }};
+window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else 'null' }};
+</script>
+
+<div class="chat-shell">
+
+    <!-- Contact List -->
+    <aside class="chat-sidebar">
+        <div class="chat-sidebar-head">
+            <span class="chat-sidebar-title">
+                <i class="fas fa-comments"></i> Messages
+            </span>
+            <span class="chat-total-badge">{{ contacts | length }}</span>
+        </div>
+        <div class="chat-contacts">
+            {% for c in contacts %}
+            <a href="{{ url_for('chat.conversation', target_username=c.username) }}"
+               class="contact-item {% if active_contact and active_contact.username == c.username %}active{% endif %}"
+               data-user="{{ c.username }}">
+                <div class="contact-avatar-wrap">
+                    <div class="contact-avatar role-{{ c.color }}">{{ c.initial }}</div>
+                    <span class="contact-dot online-dot" data-user="{{ c.username }}"></span>
+                </div>
+                <div class="contact-info">
+                    <span class="contact-name">{{ c.username }}</span>
+                    <span class="role-tag role-{{ c.color }}">{{ c.display_role }}</span>
+                </div>
+                {% if c.unread > 0 %}
+                <span class="contact-unread">{{ c.unread }}</span>
+                {% endif %}
+            </a>
+            {% else %}
+            <div class="chat-empty-contacts">
+                <i class="fas fa-user-slash"></i>
+                <p>No contacts yet</p>
+            </div>
+            {% endfor %}
+        </div>
+    </aside>
+
+    <!-- Chat Window -->
+    <div class="chat-main">
+        {% if active_contact %}
+        <!-- Top Bar -->
+        <div class="chat-topbar">
+            <div class="chat-topbar-left">
+                <div class="chat-avatar-lg role-{{ active_contact.color }}">
+                    {{ active_contact.initial }}
+                </div>
+                <div class="chat-topbar-info">
+                    <span class="chat-topbar-name">{{ active_contact.username }}</span>
+                    <span id="chat-status-text" class="chat-status-online">Online</span>
+                </div>
+            </div>
+            <div class="chat-topbar-right">
+                <span class="role-tag role-{{ active_contact.color }}">{{ active_contact.display_role }}</span>
+                <span class="chat-secure-badge"><i class="fas fa-lock"></i> E2E Secure</span>
+            </div>
+        </div>
+
+        <!-- Messages -->
+        <div class="chat-messages-area" id="chat-messages">
+            {% if not messages %}
+            <div class="chat-no-msgs">
+                <i class="fas fa-comments"></i>
+                <p>Start a conversation with <strong>{{ active_contact.username }}</strong></p>
+            </div>
+            {% endif %}
+
+            {% for msg in messages %}
+            {% set is_mine = msg.from_username == me.username %}
+            {% set rc = 'admin' if msg.from_role in ['admin','superadmin'] else ('reseller' if msg.from_role == 'reseller' else 'user') %}
+            <div class="msg-wrap {% if is_mine %}mine{% else %}theirs{% endif %}">
+                <div class="msg-avatar role-{{ rc }}">{{ msg.from_username[0]|upper }}</div>
+                <div class="msg-body">
+                    {% if not is_mine %}
+                    <div class="msg-meta">
+                        <span class="msg-name">{{ msg.from_username }}</span>
+                        <span class="role-tag role-{{ rc }}">{{ msg.from_role | replace('superadmin','Admin') | replace('admin','Admin') | replace('reseller','Reseller') | replace('user','User') }}</span>
+                    </div>
+                    {% endif %}
+                    <div class="msg-bubble">{{ msg.message }}</div>
+                    <div class="msg-time">{{ msg.timestamp.strftime('%H:%M') }}</div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <!-- Typing Indicator -->
+            <div class="msg-wrap theirs" id="typing-indicator" style="display:none;">
+                <div class="msg-avatar role-{{ active_contact.color }}">{{ active_contact.initial }}</div>
+                <div class="msg-body">
+                    <div class="typing-bubble">
+                        <span class="typing-name">{{ active_contact.username }}</span>
+                        <span> is typing</span>
+                        <span class="typing-dots">
+                            <span></span><span></span><span></span>
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Input Bar -->
+        <div class="chat-input-bar">
+            <input type="text" id="chat-input" class="chat-input"
+                   placeholder="Type a message..." autocomplete="off" maxlength="2000">
+            <button id="chat-send-btn" class="chat-send-btn" title="Send">
+                <i class="fas fa-paper-plane"></i>
+            </button>
+        </div>
+
+        <!-- Footer Badges -->
+        <div class="chat-footer-badges">
+            <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time Chat</span>
+            <span class="chat-badge green"><i class="fas fa-shield-alt"></i> E2E Secure</span>
+            <span class="chat-badge purple"><i class="fas fa-history"></i> Message History</span>
+            <span class="chat-badge blue"><i class="fas fa-circle"></i> Online Status</span>
+        </div>
+
+        {% else %}
+        <!-- No Contact Selected -->
+        <div class="chat-welcome">
+            <div class="chat-welcome-icon">
+                <i class="fas fa-comments"></i>
+            </div>
+            <h3>Select a conversation</h3>
+            <p>Choose a contact from the left to start chatting</p>
+            <div class="chat-footer-badges" style="justify-content:center; margin-top:20px;">
+                <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time</span>
+                <span class="chat-badge green"><i class="fas fa-shield-alt"></i> Secure</span>
+                <span class="chat-badge purple"><i class="fas fa-history"></i> History</span>
+                <span class="chat-badge blue"><i class="fas fa-circle"></i> Online Status</span>
+            </div>
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+{% endblock %}

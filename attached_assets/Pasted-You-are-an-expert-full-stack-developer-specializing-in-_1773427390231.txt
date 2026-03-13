@@ -1,0 +1,53 @@
+You are an expert full-stack developer specializing in real-time chat systems and modern dark-themed dashboards like dexxter.in / keyauth panels.
+
+I already have a website/dashboard (likely React + Tailwind or similar) that is rebranded to "SKYLINE" and looks visually almost identical to https://dexxter.in (dark theme, blue accents, sidebar, cards, etc.).
+
+I want to add **exact 1-to-1 private real-time chat** feature exactly like the one shown in this screenshot of dexxter.in:
+
+[Describe or imagine the screenshot you sent: dark chat UI, message bubbles (admin red A, reseller purple M, user blue J), typing indicator "... Admin is typing...", online status green dot, role colors (red Admin, purple Reseller, blue User), bottom input bar with send button, top bar with name, footer with feature badges (Real-time Chat red, E2E Secure green, etc.)]
+
+Requirements — must be 1:1 exact visual match:
+
+1. UI / Design (pixel-perfect to screenshot):
+   - Dark background, same gradient / shadow style on messages
+   - Message bubbles: left-aligned for others, right-aligned for self
+   - Role badges/circles: red A for Admin, purple M for Reseller, blue J for User (same colors + initials)
+   - Typing indicator: "Admin is typing..." with animated dots
+   - Online/offline green dot next to name
+   - Bottom input: rounded input + red send arrow button
+   - Footer badges: exactly same icons/colors/text (Real-time Chat red, End-to-End Secure green, etc.)
+   - Same animations: message fade-in, typing dots bounce, hover effects
+
+2. Functionality:
+   - Private 1-to-1 chat between any two users (user ↔ reseller, user ↔ admin, reseller ↔ admin)
+   - Real-time messages (instant delivery)
+   - Typing indicators (when someone is typing)
+   - Online/offline status (green dot)
+   - Message history loads on open
+   - Role-based colors and labels (Admin red, Reseller purple, User blue)
+   - Only logged-in users can chat
+   - Admin can chat with anyone, resellers can chat with users + admin, users can chat with resellers + admin
+
+3. Backend:
+   - Use Socket.IO (Node.js) for real-time (or Firebase if easier)
+   - Store messages in MySQL / MongoDB (sender, receiver, message, timestamp, read status)
+   - User roles: Admin, Reseller, User (already in your DB)
+   - Authentication via your existing JWT / session
+
+4. Integration:
+   - Add a "Messages" or "Chat" tab/icon in the sidebar (same style as Dexxter)
+   - Clicking opens a list of contacts (admins, resellers, users — depending on role)
+   - Selecting a contact opens the 1-to-1 chat window exactly like screenshot
+   - Show unread message count badge on sidebar icon
+
+5. Deliver:
+   - Full folder structure
+   - Frontend React components (ChatList, ChatWindow, MessageBubble, TypingIndicator, etc.)
+   - Backend Socket.IO server code + API endpoints
+   - Database schema additions (messages table)
+   - Instructions to integrate into existing project
+   - Make sure it matches dexxter.in visually 1:1 (colors, fonts, spacing, animations)
+
+Start by showing the folder structure and database schema change, then provide all code files step by step.
+Make it production-ready and fully working.
+Begin now.

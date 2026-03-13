@@ -67,6 +67,12 @@
 
             {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
             <div class="nav-section-label">Account</div>
+            <a href="{{ url_for('chat.index') }}"
+               class="nav-item {% if request.endpoint and 'chat' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-comments"></i>
+                <span>Messages</span>
+                <span id="chat-sidebar-badge"></span>
+            </a>
             <a href="{{ url_for('profile.index') }}"
                class="nav-item {% if request.endpoint and 'profile' in request.endpoint %}active{% endif %}">
                 <i class="fas fa-user-circle"></i><span>Profile</span>
@@ -132,6 +138,28 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% if session.get('admin_id') or session.get('user_id') %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+(function(){
+    var badge = document.getElementById('chat-sidebar-badge');
+    if(!badge) return;
+    function loadUnread(){
+        fetch('/chat/api/unread').then(function(r){ return r.json(); }).then(function(d){
+            if(d.unread > 0){
+                badge.textContent = d.unread;
+                badge.style.display = 'flex';
+            } else {
+                badge.textContent = '';
+                badge.style.display = 'none';
+            }
+        }).catch(function(){});
+    }
+    loadUnread();
+    setInterval(loadUnread, 30000);
+})();
+</script>
+{% endif %}
 {% block scripts %}{% endblock %}
 </body>
 </html>

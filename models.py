@@ -862,5 +862,45 @@ class Database:
         }
 
 
+    # ── Chat / Messaging ──────────────────────────────────────────────
+
+    def _ensure_chat_indexes(self):
+        self.db.chat_messages.create_index([('room_id', 1), ('timestamp', 1)])
+        self.db.chat_messages.create_index('to_username')
+
+    def save_chat_message(self, room_id, from_username, from_role, to_username, message):
+        doc = {
+            'room_id': room_id,
+            'from_username': from_username,
+            'from_role': from_role,
+            'to_username': to_username,
+            'message': message,
+            'timestamp': self._now(),
+            'read': False,
+        }
+        result = self.db.chat_messages.insert_one(doc)
+        doc['_id'] = result.inserted_id
+        return doc
+
+    def get_chat_history(self, room_id, limit=100):
+        msgs = list(
+            self.db.chat_messages.find({'room_id': room_id})
+            .sort('timestamp', 1)
+            .limit(limit)
+        )
+        return msgs
+
+    def mark_messages_read(self, room_id, reader_username):
+        self.db.chat_messages.update_many(
+            {'room_id': room_id, 'to_username': reader_username, 'read': False},
+            {'$set': {'read': True}},
+        )
+
+    def get_unread_count(self, room_id, reader_username):
+        return self.db.chat_messages.count_documents(
+            {'room_id': room_id, 'to_username': reader_username, 'read': False}
+        )
+
+
 db = Database()
 
