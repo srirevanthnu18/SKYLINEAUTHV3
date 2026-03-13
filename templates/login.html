@@ -1,64 +1,310 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SKYLINE - Login</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
-    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>SKYLINE - Login</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@700&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+<style>
+*, *::before, *::after { margin: 0; padding: 0; box-sizing: border-box; }
+
+html, body {
+  width: 100%;
+  min-height: 100vh;
+  background: #000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: 'Inter', sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+@property --a {
+  syntax: '<angle>';
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes spin {
+  from { --a: 0deg; }
+  to   { --a: 360deg; }
+}
+
+.glow-wrap {
+  position: relative;
+  width: 370px;
+}
+
+.glow-wrap::before {
+  content: '';
+  position: absolute;
+  inset: -2px;
+  border-radius: 2px;
+  background: conic-gradient(
+    from var(--a) at 50% 50%,
+    transparent 0deg,
+    transparent 263deg,
+    #9900ff 269deg,
+    #ee88ff 274deg,
+    #ffffff 277deg,
+    #ee88ff 280deg,
+    #9900ff 285deg,
+    transparent 291deg,
+    transparent 360deg
+  );
+  -webkit-mask: linear-gradient(#fff 0 0) content-box, linear-gradient(#fff 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  padding: 2px;
+  animation: spin 2.6s linear infinite;
+  z-index: 0;
+  filter: brightness(1.7);
+}
+
+.glow-wrap::after {
+  content: '';
+  position: absolute;
+  inset: -5px;
+  border-radius: 2px;
+  background: conic-gradient(
+    from var(--a) at 50% 50%,
+    transparent 0deg,
+    transparent 267deg,
+    rgba(180,0,255,.0) 272deg,
+    rgba(230,130,255,1) 277deg,
+    rgba(180,0,255,.0) 282deg,
+    transparent 287deg,
+    transparent 360deg
+  );
+  filter: blur(6px) brightness(2.0);
+  animation: spin 2.6s linear infinite;
+  z-index: 0;
+}
+
+.card {
+  position: relative;
+  z-index: 1;
+  background: #0a0812;
+  border-radius: 2px;
+  border: 1px solid rgba(100,30,180,.4);
+  padding: 40px 28px 36px;
+  width: 100%;
+}
+
+/* Logo */
+.logo-wrap {
+  display: flex;
+  justify-content: center;
+  margin-bottom: 14px;
+}
+
+.logo-wrap img {
+  width: 90px;
+  height: 90px;
+  border-radius: 50%;
+  object-fit: cover;
+  box-shadow: 0 0 24px rgba(170,0,255,0.45), 0 0 8px rgba(124,58,237,0.4);
+}
+
+.brand {
+  display: block;
+  text-align: center;
+  font-family: 'Rajdhani', sans-serif;
+  font-size: 38px;
+  font-weight: 700;
+  letter-spacing: 7px;
+  background: linear-gradient(90deg, #aa00ff, #dd66ff);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+  margin-bottom: 6px;
+}
+
+.tagline {
+  text-align: center;
+  font-size: 12px;
+  color: #4e3d6a;
+  font-weight: 400;
+  letter-spacing: .5px;
+  margin-bottom: 24px;
+}
+
+/* Flash messages */
+.flash {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 14px;
+  border-radius: 2px;
+  font-size: 13px;
+  font-weight: 500;
+  margin-bottom: 18px;
+  gap: 10px;
+}
+.flash-error   { background: rgba(180,0,0,.15);   border: 1px solid rgba(220,50,50,.3);   color: #ff7070; }
+.flash-success { background: rgba(0,180,80,.12);   border: 1px solid rgba(0,200,80,.3);    color: #50e090; }
+.flash-warning { background: rgba(200,120,0,.12);  border: 1px solid rgba(220,150,0,.3);   color: #ffb040; }
+.flash-info    { background: rgba(100,0,255,.12);  border: 1px solid rgba(140,50,255,.3);  color: #bb88ff; }
+.flash-close {
+  background: transparent;
+  border: none;
+  color: inherit;
+  font-size: 16px;
+  cursor: pointer;
+  opacity: .6;
+  line-height: 1;
+  flex-shrink: 0;
+}
+.flash-close:hover { opacity: 1; }
+
+/* Fields */
+.field { margin-bottom: 20px; }
+
+.lbl {
+  display: block;
+  font-size: 13px;
+  font-weight: 700;
+  color: #ffffff;
+  margin-bottom: 9px;
+  letter-spacing: .15px;
+}
+
+.inp-wrap {
+  display: flex;
+  align-items: center;
+  background: #0c0918;
+  border: 1px solid #221a3a;
+  border-radius: 2px;
+  padding: 0 14px;
+  gap: 11px;
+  transition: border-color .15s, box-shadow .15s;
+}
+
+.inp-wrap:focus-within {
+  border-color: #8800ff;
+  box-shadow: 0 0 0 2px rgba(136,0,255,.22), 0 0 14px rgba(136,0,255,.15);
+}
+
+.inp-wrap .input-icon {
+  color: #4d2e99;
+  font-size: 14px;
+  flex-shrink: 0;
+  width: 16px;
+  text-align: center;
+}
+
+.inp-wrap input {
+  flex: 1;
+  background: transparent;
+  border: none;
+  outline: none;
+  padding: 14px 0;
+  font-family: 'Inter', sans-serif;
+  font-size: 14px;
+  color: #cdbff0;
+  caret-color: #aa44ff;
+}
+
+.inp-wrap input::placeholder { color: #2e2350; }
+
+/* Submit button */
+.login-btn {
+  width: 100%;
+  padding: 15px;
+  border: none;
+  border-radius: 2px;
+  background: linear-gradient(90deg, #4400cc, #6600ff, #9922ff);
+  color: #fff;
+  font-family: 'Inter', sans-serif;
+  font-size: 15px;
+  font-weight: 700;
+  letter-spacing: .8px;
+  text-transform: uppercase;
+  cursor: pointer;
+  box-shadow: 0 4px 30px rgba(102,0,255,.65), inset 0 1px 0 rgba(255,255,255,.08);
+  transition: opacity .16s, transform .12s;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+
+.login-btn:hover  { opacity: .86; transform: translateY(-1px); }
+.login-btn:active { opacity: 1;   transform: none; }
+
+.footer-text {
+  text-align: center;
+  margin-top: 22px;
+  font-size: 11px;
+  color: #2e2350;
+  letter-spacing: .3px;
+}
+</style>
 </head>
 <body>
-<div class="login-bg">
-    <div class="login-card">
 
-        <!-- Status -->
-        <div class="login-status">
-            <span class="login-status-dot"></span>
-            Systems Online
-        </div>
+<div class="glow-wrap">
+  <div class="card">
 
-        <!-- Logo -->
-        <div class="login-logo" style="flex-direction:column; gap:6px;">
-            <img src="/static/uploads/logo.png" alt="SKYLINE" style="width:110px; height:110px; border-radius:50%; object-fit:cover; box-shadow:0 0 28px rgba(0,217,255,0.35), 0 0 8px rgba(124,58,237,0.4);">
-        </div>
-        <p class="login-subtitle" style="margin-top:10px;">Authentication Management System</p>
-
-        <!-- Flash Messages -->
-        {% with messages = get_flashed_messages(with_categories=true) %}
-        {% if messages %}
-        {% for category, message in messages %}
-        <div class="flash flash-{{ category }}" style="margin-bottom: 14px;">
-            <span>{{ message }}</span>
-            <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
-        </div>
-        {% endfor %}
-        {% endif %}
-        {% endwith %}
-
-        <!-- Form -->
-        <form method="POST" autocomplete="off">
-            <label class="login-label">Username</label>
-            <div class="login-input-wrap">
-                <i class="fas fa-user input-icon"></i>
-                <input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus autocomplete="username">
-            </div>
-
-            <label class="login-label" style="margin-top:4px;">Password</label>
-            <div class="login-input-wrap">
-                <i class="fas fa-lock input-icon"></i>
-                <input type="password" name="password" class="form-control" placeholder="Enter your password" required autocomplete="current-password">
-            </div>
-
-            <button type="submit" class="login-btn">
-                <i class="fas fa-arrow-right-to-bracket"></i>
-                Sign In
-            </button>
-        </form>
-
-        <p style="text-align:center; margin-top:20px; font-size:11px; color: var(--text-muted);">
-            &copy; {{ 2025 }} SKYLINE &mdash; Secure Auth Panel
-        </p>
+    <!-- Logo image if present -->
+    <div class="logo-wrap">
+      <img src="/static/uploads/logo.png" alt="SKYLINE"
+           onerror="this.parentElement.style.display='none'">
     </div>
+
+    <span class="brand">SKYLINE</span>
+    <p class="tagline">Authentication Management System</p>
+
+    <!-- Flash messages -->
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+      {% for category, message in messages %}
+      <div class="flash flash-{{ category }}">
+        <span>{{ message }}</span>
+        <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+      </div>
+      {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <!-- Login form -->
+    <form method="POST" autocomplete="off">
+      <input type="hidden" name="role" value="admin">
+
+      <div class="field">
+        <label class="lbl">Username</label>
+        <div class="inp-wrap">
+          <i class="fas fa-user input-icon"></i>
+          <input type="text" name="username" id="uIn"
+                 placeholder="Enter admin username"
+                 required autofocus autocomplete="username">
+        </div>
+      </div>
+
+      <div class="field">
+        <label class="lbl">Password</label>
+        <div class="inp-wrap">
+          <i class="fas fa-lock input-icon"></i>
+          <input type="password" name="password"
+                 placeholder="Enter admin password"
+                 required autocomplete="current-password">
+        </div>
+      </div>
+
+      <button type="submit" class="login-btn" id="loginBtn">
+        <i class="fas fa-arrow-right-to-bracket"></i>
+        <span id="btnTxt">Sign In</span>
+      </button>
+    </form>
+
+    <p class="footer-text">
+      &copy; {{ 2025 }} SKYLINE &mdash; Secure Auth Panel
+    </p>
+
+  </div>
 </div>
+
+<script></script>
 </body>
 </html>
