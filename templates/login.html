@@ -1,200 +1,67 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>SKYLINE - Login</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
-
-    <!-- Custom Aesthetic Styling -->
-    <style>
-        /* Dark Gradient Background with Blur Blobs */
-        /* Soft Particle Background Integration */
-        .login-page {
-            background: rgba(10, 10, 15, 0.7);
-            min-height: 100vh;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            position: relative;
-            z-index: 1;
-        }
-
-        @keyframes float1 {
-
-            0%,
-            100% {
-                transform: translate(0, 0);
-            }
-
-            50% {
-                transform: translate(50px, 50px);
-            }
-        }
-
-        @keyframes float2 {
-
-            0%,
-            100% {
-                transform: translate(0, 0);
-            }
-
-            50% {
-                transform: translate(-40px, -40px);
-            }
-        }
-
-        /* Glassmorphism Card */
-        .login-page .login-box {
-            background: rgba(255, 255, 255, 0.05);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 16px;
-            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
-            position: relative;
-            z-index: 10;
-        }
-
-        /* Status Dot - Online Indicator */
-        .login-page .login-box::before {
-            content: '';
-            position: absolute;
-            top: 16px;
-            right: 16px;
-            width: 10px;
-            height: 10px;
-            background: #00ff88;
-            border-radius: 50%;
-            box-shadow: 0 0 8px #00ff88, 0 0 16px rgba(0, 255, 136, 0.4);
-            animation: pulse 2s ease-in-out infinite;
-        }
-
-        .login-page .login-box::after {
-            content: 'Online';
-            position: absolute;
-            top: 14px;
-            right: 32px;
-            font-size: 11px;
-            color: rgba(255, 255, 255, 0.5);
-            letter-spacing: 0.5px;
-        }
-
-        @keyframes pulse {
-
-            0%,
-            100% {
-                opacity: 1;
-                transform: scale(1);
-            }
-
-            50% {
-                opacity: 0.7;
-                transform: scale(1.1);
-            }
-        }
-
-        /* Logo Styling */
-        .login-page .login-brand h1 {
-            color: #fff;
-            letter-spacing: 4px;
-        }
-
-        .login-page .login-brand p {
-            color: rgba(255, 255, 255, 0.5);
-        }
-
-        /* Rounded Inputs with Inner Shadow */
-        .login-page .form-control {
-            background: rgba(0, 0, 0, 0.3);
-            border: 1px solid rgba(255, 255, 255, 0.08);
-            border-radius: 10px;
-            color: #fff;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4);
-            transition: all 0.3s ease;
-        }
-
-        .login-page .form-control::placeholder {
-            color: rgba(255, 255, 255, 0.35);
-        }
-
-        /* Cyan Neon Focus Effect */
-        .login-page .form-control:focus {
-            border-color: #00d9ff;
-            box-shadow: inset 0 2px 6px rgba(0, 0, 0, 0.4),
-                0 0 0 3px rgba(0, 217, 255, 0.15),
-                0 0 20px rgba(0, 217, 255, 0.2);
-            outline: none;
-        }
-
-        /* Labels */
-        .login-page label {
-            color: rgba(255, 255, 255, 0.7);
-            font-size: 13px;
-            margin-bottom: 6px;
-        }
-
-        /* Neon Glow Button */
-        .login-page .btn-danger {
-            background: linear-gradient(135deg, #00d9ff, #00b4d8);
-            border: none;
-            border-radius: 10px;
-            color: #000;
-            font-weight: 600;
-            box-shadow: 0 4px 20px rgba(0, 217, 255, 0.4);
-            transition: all 0.3s ease;
-        }
-
-        .login-page .btn-danger:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 30px rgba(0, 217, 255, 0.6),
-                0 0 40px rgba(0, 217, 255, 0.3);
-        }
-
-        .login-page .btn-danger:active {
-            transform: translateY(0);
-        }
-    </style>
 </head>
-
 <body>
-    <div class="login-page">
-        <div class="login-box">
-            <div class="login-brand">
-                <h1>SKYLINE</h1>
-                <p>Authentication Management System</p>
-            </div>
+<div class="login-bg">
+    <div class="login-card">
 
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            {% for category, message in messages %}
-            <div class="flash flash-{{ category }}" style="margin-bottom: 16px;">
-                <span>{{ message }}</span>
-                <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
-            </div>
-            {% endfor %}
-            {% endif %}
-            {% endwith %}
-
-            <form method="POST">
-                <div class="form-group">
-                    <label>Username</label>
-                    <input type="text" name="username" class="form-control" placeholder="Enter username" required
-                        autofocus>
-                </div>
-                <div class="form-group">
-                    <label>Password</label>
-                    <input type="password" name="password" class="form-control" placeholder="Enter password" required>
-                </div>
-                <button type="submit" class="btn btn-danger">
-                    <i class="fas fa-sign-in-alt"></i> Login
-                </button>
-            </form>
+        <!-- Status -->
+        <div class="login-status">
+            <span class="login-status-dot"></span>
+            Systems Online
         </div>
-    </div>
-    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
-</body>
 
+        <!-- Logo -->
+        <div class="login-logo">
+            <div class="login-logo-icon">
+                <i class="fas fa-shield-alt"></i>
+            </div>
+            <span class="login-title">SKYLINE</span>
+        </div>
+        <p class="login-subtitle">Authentication Management System</p>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        {% for category, message in messages %}
+        <div class="flash flash-{{ category }}" style="margin-bottom: 14px;">
+            <span>{{ message }}</span>
+            <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+        </div>
+        {% endfor %}
+        {% endif %}
+        {% endwith %}
+
+        <!-- Form -->
+        <form method="POST" autocomplete="off">
+            <label class="login-label">Username</label>
+            <div class="login-input-wrap">
+                <i class="fas fa-user input-icon"></i>
+                <input type="text" name="username" class="form-control" placeholder="Enter your username" required autofocus autocomplete="username">
+            </div>
+
+            <label class="login-label" style="margin-top:4px;">Password</label>
+            <div class="login-input-wrap">
+                <i class="fas fa-lock input-icon"></i>
+                <input type="password" name="password" class="form-control" placeholder="Enter your password" required autocomplete="current-password">
+            </div>
+
+            <button type="submit" class="login-btn">
+                <i class="fas fa-arrow-right-to-bracket"></i>
+                Sign In
+            </button>
+        </form>
+
+        <p style="text-align:center; margin-top:20px; font-size:11px; color: var(--text-muted);">
+            &copy; {{ 2025 }} SKYLINE &mdash; Secure Auth Panel
+        </p>
+    </div>
+</div>
+</body>
 </html>

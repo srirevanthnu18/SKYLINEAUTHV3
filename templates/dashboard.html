@@ -1,16 +1,20 @@
 {% extends "base.html" %}
-{% block title %}SKYLINE- Dashboard{% endblock %}
+{% block title %}SKYLINE — Dashboard{% endblock %}
 {% block page_title %}Overview{% endblock %}
 
 {% block content %}
-<!-- Backup Section -->
+
 {% if admin.role in ['superadmin', 'admin'] %}
 <div class="card backup-card">
-    <div style="display:flex; justify-content:space-between; align-items:center;">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:14px;">
         <div class="backup-info">
-            <h3><i class="fas fa-database text-red"></i> Database Backup</h3>
-            <p>Automatic backup + manual backup option</p>
-            <div class="backup-time">Last backup: {{ last_backup }}</div>
+            <h3 style="font-size:15px; font-weight:700; margin-bottom:4px;">
+                <i class="fas fa-database" style="color:#f87171;"></i> Database Backup
+            </h3>
+            <p style="color:var(--text-sec);font-size:13px;">Automatic backup + manual backup available</p>
+            <div class="backup-time" style="margin-top:6px; font-size:12px; color:#4ade80;">
+                <i class="fas fa-clock" style="margin-right:4px;"></i> Last backup: {{ last_backup }}
+            </div>
         </div>
         <form method="POST" action="{{ url_for('dashboard.backup') }}">
             <button type="submit" class="btn btn-danger">
@@ -25,68 +29,74 @@
 {% if admin.role == 'reseller' %}
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-coins" style="color:#f0b90b;"></i> Credits</div>
-        <div class="stat-number">{{ stats.credits }}</div>
-        <div class="stat-label">Available Credits</div>
+        <div class="stat-icon-wrap"><i class="fas fa-coins"></i></div>
+        <div class="stat-number" style="color:#fbbf24;">{{ stats.credits }}</div>
+        <div class="stat-label">Credits</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-users"></i> Your Users</div>
+        <div class="stat-icon-wrap"><i class="fas fa-users"></i></div>
         <div class="stat-number">{{ stats.users }}</div>
         <div class="stat-label">Users Created</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-box"></i> Packages</div>
+        <div class="stat-icon-wrap"><i class="fas fa-box"></i></div>
         <div class="stat-number">{{ stats.assigned_packages }}</div>
-        <div class="stat-label">Assigned Packages</div>
+        <div class="stat-label">Packages</div>
     </div>
 </div>
 {% else %}
 <div class="stats-grid">
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-coins" style="color:#f0b90b;"></i> Credits</div>
-        <div class="stat-number">{{ stats.credits }}</div>
-        <div class="stat-label">Available Credits</div>
+        <div class="stat-icon-wrap"><i class="fas fa-coins"></i></div>
+        <div class="stat-number" style="color:#fbbf24;">{{ stats.credits }}</div>
+        <div class="stat-label">Credits</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-mobile-alt"></i> Applications</div>
+        <div class="stat-icon-wrap"><i class="fas fa-mobile-alt"></i></div>
         <div class="stat-number">{{ stats.apps }}</div>
-        <div class="stat-label">Total Apps</div>
+        <div class="stat-label">Applications</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-users"></i> Users</div>
+        <div class="stat-icon-wrap"><i class="fas fa-users"></i></div>
         <div class="stat-number">{{ stats.users }}</div>
         <div class="stat-label">Total Users</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-box"></i> Packages</div>
+        <div class="stat-icon-wrap"><i class="fas fa-key"></i></div>
         <div class="stat-number">{{ stats.packages }}</div>
-        <div class="stat-label">Total Packages</div>
+        <div class="stat-label">Packages</div>
     </div>
 </div>
-<div class="stats-grid">
+{% if admin.role in ['superadmin', 'admin'] %}
+<div class="stats-grid" style="grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));">
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-user-shield"></i> Admins</div>
+        <div class="stat-icon-wrap"><i class="fas fa-user-shield"></i></div>
         <div class="stat-number">{{ stats.admins }}</div>
-        <div class="stat-label">Total Admins</div>
+        <div class="stat-label">Admins</div>
     </div>
     <div class="stat-card">
-        <div class="stat-icon"><i class="fas fa-store"></i> Resellers</div>
+        <div class="stat-icon-wrap"><i class="fas fa-store"></i></div>
         <div class="stat-number">{{ stats.resellers }}</div>
-        <div class="stat-label">Total Resellers</div>
+        <div class="stat-label">Resellers</div>
     </div>
 </div>
 {% endif %}
+{% endif %}
 
-<!-- Role Info -->
+<!-- Account Status -->
 <div class="card">
     <div class="card-header">
         <h3><i class="fas fa-crown"></i> Account Status</h3>
     </div>
-    <div class="text-center">
-        <span class="badge badge-active" style="font-size:14px; padding:8px 20px;">
-            {{ admin.role|replace('superadmin','Super Admin')|replace('admin','Admin')|replace('reseller','Reseller') }} Account Active
+    <div style="text-align:center; padding:8px 0 4px;">
+        <span class="badge badge-active" style="font-size:13px; padding:6px 18px; margin-bottom:10px; display:inline-flex;">
+            <i class="fas fa-circle" style="font-size:8px;"></i>
+            {{ admin.role|replace('superadmin','Super Admin')|replace('admin','Admin')|replace('reseller','Reseller') }} &mdash; Active
         </span>
-        <p class="text-muted" style="margin-top:12px;">Logged in as <strong>{{ admin.username }}</strong></p>
+        <p style="color:var(--text-muted); font-size:13px; margin-top:10px;">
+            Logged in as <strong style="color:var(--purple-light);">{{ admin.username }}</strong>
+        </p>
     </div>
 </div>
+
 {% endblock %}

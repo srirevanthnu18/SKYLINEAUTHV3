@@ -1,6 +1,5 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -8,107 +7,131 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
 </head>
-
 <body>
-    <div class="layout">
-        <!-- Sidebar -->
-        <aside class="sidebar">
-            <div class="sidebar-brand">
+<div class="layout">
+
+    <!-- Sidebar -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-brand">
+            <div class="brand-icon"><i class="fas fa-shield-alt"></i></div>
+            <div>
                 <span class="brand-text">SKYLINE</span>
+                <span class="brand-badge">Auth Panel</span>
             </div>
-            <nav class="sidebar-nav">
-                <a href="{{ url_for('auth.user_dashboard') if session.get('role') == 'user' else url_for('dashboard.index') }}"
-                    class="nav-item {% if request.endpoint == 'dashboard.index' or request.endpoint == 'auth.user_dashboard' %}active{% endif %}">
-                    <i class="fas fa-chart-pie"></i> <span>Overview</span>
-                </a>
-                {% if session.get('role') in ['superadmin', 'admin'] %}
-                <a href="{{ url_for('apps.index') }}"
-                    class="nav-item {% if request.endpoint and 'apps' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-mobile-alt"></i> <span>Apps</span>
-                </a>
-                {% endif %}
-                {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
-                <a href="{{ url_for('users.index') }}"
-                    class="nav-item {% if request.endpoint == 'users.index' %}active{% endif %}">
-                    <i class="fas fa-users"></i> <span>Users</span>
-                </a>
-                <a href="{{ url_for('users.licenses') }}"
-                    class="nav-item {% if request.endpoint == 'users.licenses' %}active{% endif %}">
-                    <i class="fas fa-key"></i> <span>Licenses</span>
-                </a>
-                {% endif %}
-                {% if session.get('role') in ['superadmin', 'admin'] %}
-                <a href="{{ url_for('resellers.index') }}"
-                    class="nav-item {% if request.endpoint and 'resellers' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-store"></i> <span>Resellers</span>
-                </a>
-                <a href="{{ url_for('packages.index') }}"
-                    class="nav-item {% if request.endpoint and 'packages' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-box"></i> <span>Packages</span>
-                </a>
-                {% endif %}
-                {% if session.get('role') == 'superadmin' %}
-                <a href="{{ url_for('admins.index') }}"
-                    class="nav-item {% if request.endpoint and 'admins' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-user-shield"></i> <span>Admins</span>
-                </a>
-                {% endif %}
-                {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
-                <a href="{{ url_for('profile.index') }}"
-                    class="nav-item {% if request.endpoint and 'profile' in request.endpoint %}active{% endif %}">
-                    <i class="fas fa-user-circle"></i> <span>Profile</span>
-                </a>
-                {% endif %}
-            </nav>
-            <div class="sidebar-footer">
-                <a href="{{ url_for('auth.logout') }}" class="btn btn-danger btn-block">
-                    <i class="fas fa-sign-out-alt"></i> Logout
-                </a>
-            </div>
-        </aside>
+        </div>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <header class="top-bar">
-                <div class="top-bar-left">
-                    <h2>{% block page_title %}Dashboard{% endblock %}</h2>
-                </div>
-                <div class="top-bar-right">
-                    <span class="user-info">
-                        <i class="fas fa-coins" style="color:#f0b90b;"></i>
-                        <strong>{{ session.get('credits', 0) }}</strong> credits
-                        &nbsp;&nbsp;
-                        <i class="fas fa-circle text-success"></i>
-                        {{ session.get('username', 'User') }}
-                        <span class="badge badge-role">{{ session.get('role', '').replace('superadmin', 'Super
-                            Admin').replace('admin', 'Admin').replace('reseller', 'Reseller') }}</span>
-                    </span>
-                </div>
-            </header>
+        <nav class="sidebar-nav">
+            <!-- Overview -->
+            <a href="{{ url_for('auth.user_dashboard') if session.get('role') == 'user' else url_for('dashboard.index') }}"
+               class="nav-item {% if request.endpoint in ['dashboard.index', 'auth.user_dashboard'] %}active{% endif %}">
+                <i class="fas fa-chart-pie"></i><span>Overview</span>
+            </a>
 
-            <!-- Flash Messages -->
-            {% with messages = get_flashed_messages(with_categories=true) %}
-            {% if messages %}
-            <div class="flash-container">
-                {% for category, message in messages %}
-                <div class="flash flash-{{ category }}">
-                    <span>{{ message }}</span>
-                    <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
-                </div>
-                {% endfor %}
-            </div>
+            {% if session.get('role') in ['superadmin', 'admin'] %}
+            <div class="nav-section-label">Management</div>
+            <a href="{{ url_for('apps.index') }}"
+               class="nav-item {% if request.endpoint and 'apps' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-mobile-alt"></i><span>Applications</span>
+            </a>
             {% endif %}
-            {% endwith %}
 
-            <div class="content-area">
-                {% block content %}{% endblock %}
+            {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
+            <a href="{{ url_for('users.index') }}"
+               class="nav-item {% if request.endpoint == 'users.index' %}active{% endif %}">
+                <i class="fas fa-users"></i><span>Users</span>
+            </a>
+            <a href="{{ url_for('users.licenses') }}"
+               class="nav-item {% if request.endpoint == 'users.licenses' %}active{% endif %}">
+                <i class="fas fa-key"></i><span>Licenses</span>
+            </a>
+            {% endif %}
+
+            {% if session.get('role') in ['superadmin', 'admin'] %}
+            <a href="{{ url_for('resellers.index') }}"
+               class="nav-item {% if request.endpoint and 'resellers' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-store"></i><span>Resellers</span>
+            </a>
+            <a href="{{ url_for('packages.index') }}"
+               class="nav-item {% if request.endpoint and 'packages' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-box"></i><span>Packages</span>
+            </a>
+            {% endif %}
+
+            {% if session.get('role') == 'superadmin' %}
+            <div class="nav-section-label">System</div>
+            <a href="{{ url_for('admins.index') }}"
+               class="nav-item {% if request.endpoint and 'admins' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-user-shield"></i><span>Admins</span>
+            </a>
+            {% endif %}
+
+            {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
+            <div class="nav-section-label">Account</div>
+            <a href="{{ url_for('profile.index') }}"
+               class="nav-item {% if request.endpoint and 'profile' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-user-circle"></i><span>Profile</span>
+            </a>
+            {% endif %}
+        </nav>
+
+        <div class="sidebar-footer">
+            <!-- User Info -->
+            <div class="sidebar-user">
+                <div class="sidebar-user-avatar">
+                    {{ session.get('username', 'U')[0]|upper }}
+                </div>
+                <div class="sidebar-user-info">
+                    <div class="sidebar-user-name">{{ session.get('username', 'User') }}</div>
+                    <div class="sidebar-user-role">{{ session.get('role', '').replace('superadmin','Super Admin').replace('admin','Admin').replace('reseller','Reseller') }}</div>
+                </div>
             </div>
-        </main>
-    </div>
+            <a href="{{ url_for('auth.logout') }}" class="btn-logout">
+                <i class="fas fa-sign-out-alt"></i> Sign Out
+            </a>
+        </div>
+    </aside>
 
-    <script src="{{ url_for('static', filename='js/particles.js') }}"></script>
-    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-    {% block scripts %}{% endblock %}
+    <!-- Main Content -->
+    <main class="main-content">
+        <header class="top-bar">
+            <div class="top-bar-title">{% block page_title %}Dashboard{% endblock %}</div>
+            <div class="top-bar-right">
+                {% if session.get('credits') is not none %}
+                <div class="topbar-pill">
+                    <i class="fas fa-coins" style="color:#fbbf24;font-size:12px;"></i>
+                    <span class="credits-val">{{ session.get('credits', 0) }}</span>
+                    <span style="color:var(--text-muted);font-size:12px;">credits</span>
+                </div>
+                {% endif %}
+                <div class="topbar-pill">
+                    <span class="status-dot"></span>
+                    {{ session.get('username', 'User') }}
+                    <span class="badge-role">{{ session.get('role', '').replace('superadmin','SA').replace('admin','Admin').replace('reseller','Reseller') }}</span>
+                </div>
+            </div>
+        </header>
+
+        <!-- Flash Messages -->
+        {% with messages = get_flashed_messages(with_categories=true) %}
+        {% if messages %}
+        <div class="flash-container" style="margin-top:16px;">
+            {% for category, message in messages %}
+            <div class="flash flash-{{ category }}">
+                <span>{{ message }}</span>
+                <button class="flash-close" onclick="this.parentElement.remove()">&times;</button>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+        {% endwith %}
+
+        <div class="content-area">
+            {% block content %}{% endblock %}
+        </div>
+    </main>
+</div>
+
+<script src="{{ url_for('static', filename='js/main.js') }}"></script>
+{% block scripts %}{% endblock %}
 </body>
-
 </html>
