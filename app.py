@@ -25,6 +25,9 @@ def create_app():
     db.init_app(app)
     db._ensure_chat_indexes()
 
+    import discord_logger
+    discord_logger.setup(app)
+
     socketio.init_app(
         app,
         async_mode='eventlet',
