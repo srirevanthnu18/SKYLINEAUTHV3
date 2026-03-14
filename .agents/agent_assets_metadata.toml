@@ -1,0 +1,8 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "U8cCU4WrYYi4cY3OzhGQJ"
+uri = "file:///home/runner/skyline_project.zip"
+type = "unspecified"
+title = "skyline_project.zip"
