@@ -105,7 +105,9 @@ def handle_api():
             or_clauses.append({'owner_id': oid})
         app = db.db.apps.find_one({'name': name, '$or': or_clauses})
         if not app:
-            return "KeyAuth_Invalid"
+            resp = make_response(json.dumps({"success": False, "message": "KeyAuth_Invalid"}, separators=(',', ':')))
+            resp.headers['Content-Type'] = 'application/json'
+            return resp
 
         secret = app['secret_key']
 

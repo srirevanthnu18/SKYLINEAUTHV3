@@ -31,6 +31,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
+                    <th>Owner ID</th>
                     <th>Secret Key</th>
                     <th>Status</th>
                     <th>Created</th>
@@ -41,6 +42,12 @@
                 {% for app in apps %}
                 <tr>
                     <td><strong>{{ app.name }}</strong></td>
+                    <td>
+                        <span class="secret-key" id="ownerid-{{ app._id }}">{{ app.owner_id }}</span>
+                        <button class="copy-btn" onclick="copyText('{{ app.owner_id }}')">
+                            <i class="fas fa-copy"></i>
+                        </button>
+                    </td>
                     <td>
                         <span class="secret-key" id="key-{{ app._id }}">{{ app.secret_key }}</span>
                         <button class="copy-btn" onclick="copyText('{{ app.secret_key }}')">
