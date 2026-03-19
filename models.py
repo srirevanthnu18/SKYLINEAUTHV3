@@ -413,6 +413,21 @@ class Database:
         if self.mode == 'mongo':
             return self.db.sessions.find_one({'session_id': session_id})
 
+    def delete_session(self, session_id):
+        if self.mode == 'mongo':
+            self.db.sessions.delete_one({'session_id': session_id})
+
+    def get_online_users(self, app_id):
+        if self.mode == 'mongo':
+            oid = self._to_id(app_id)
+            recent = self._now() - timedelta(minutes=10)
+            users = self.db.app_users.find(
+                {'app_id': oid, 'last_login': {'$gte': recent}},
+                {'username': 1}
+            )
+            return [u.get('username', '') for u in users if u.get('username')]
+        return []
+
     # ── Credit system ───────────────────────────────────────────────
 
     def get_credits(self, admin_id):

@@ -33,6 +33,10 @@ def get_ip():
     return request.remote_addr
 
 
+def nonce():
+    return secrets.token_hex(16)
+
+
 def format_user_info(user, ip):
     try:
         now = datetime.utcnow()
@@ -106,7 +110,7 @@ def handle_api():
                 return signed_response({"success": False, "message": app.get('app_disabled_msg', 'Application disabled.')}, secret)
 
             if app.get('is_paused', False):
-                return signed_response({"success": False, "message": "Application is currently under maintenance."}, secret)
+                return signed_response({"success": False, "message": app.get('paused_msg', 'Application is currently paused, please wait for the developer to say otherwise.')}, secret)
 
             if ver and ver != str(app.get('version', '')):
                 return signed_response({
@@ -117,7 +121,7 @@ def handle_api():
 
             if app.get('hash_check') and app.get('server_hash') and file_hash:
                 if file_hash != app['server_hash']:
-                    return signed_response({"success": False, "message": "File hash mismatch. Please re-download the application."}, secret)
+                    return signed_response({"success": False, "message": app.get('hash_check_fail_msg', 'File on your disk is modifed. Please re-download.')}, secret)
 
             sessionid = db.create_session(app['_id'], enckey)
             stats = db.get_app_stats(app['_id'])
@@ -135,16 +139,16 @@ def handle_api():
                     "customerPanelLink": domain
                 },
                 "newSession": True,
-                "newsession": True
+                "nonce": nonce()
             }, secret)
 
         # ── All other actions require a valid session ─────────────────────────
         sessionid = data.get('sessionid', '').strip()
         session = db.get_session(sessionid)
         if not session:
-            return signed_response({"success": False, "message": "Invalid session. Please reinitialize."}, secret)
+            return signed_response({"success": False, "message": "Invalid session ID."}, secret)
 
-        # Build the per-session signing key  (enckey + "-" + app_secret)
+        # Build the per-session signing key (enckey + "-" + app_secret)
         sent_key = session.get('sent_key') or ''
         resp_key = f"{sent_key}-{secret}" if sent_key else secret
 
@@ -152,7 +156,7 @@ def handle_api():
         expiry_secs = int(app.get('session_expiry', 3600))
         age = (datetime.utcnow() - session['created_at']).total_seconds()
         if age > expiry_secs:
-            return signed_response({"success": False, "message": "Session expired. Please reinitialize."}, resp_key)
+            return signed_response({"success": False, "message": "Session timed out. Please re-initiate."}, resp_key)
 
         hwid = data.get('hwid', '').strip()
         ip = get_ip()
@@ -172,9 +176,9 @@ def handle_api():
             db.add_log(app['_id'], username, f"Logged in from {ip}", ip)
             return signed_response({
                 "success": True,
-                "message": "Logged in successfully",
+                "message": "Logged in!",
                 "info": format_user_info(user, ip),
-                "nonce": secrets.token_hex(16)
+                "nonce": nonce()
             }, resp_key)
 
         # ── Register (license key → new account) ─────────────────────────────
@@ -189,9 +193,9 @@ def handle_api():
             db.add_log(app['_id'], username, f"Registered with key {license_key} from {ip}", ip)
             return signed_response({
                 "success": True,
-                "message": "Account registered successfully",
+                "message": "Logged in!",
                 "info": format_user_info(user, ip),
-                "nonce": secrets.token_hex(16)
+                "nonce": nonce()
             }, resp_key)
 
         # ── License (key-only auth, no username/password) ─────────────────────
@@ -204,16 +208,15 @@ def handle_api():
             db.add_log(app['_id'], license_key, f"License auth from {ip}", ip)
             return signed_response({
                 "success": True,
-                "message": "License authenticated",
+                "message": "Logged in!",
                 "info": format_user_info(user, ip),
-                "nonce": secrets.token_hex(16)
+                "nonce": nonce()
             }, resp_key)
 
         # ── Upgrade (use a new key to extend existing account) ────────────────
         if app_type == 'upgrade':
             username = data.get('username', '').strip()
             license_key = data.get('key', '').strip()
-            # Find the unused upgrade key
             upgrade_key = db.db.app_users.find_one({
                 'app_id': app['_id'],
                 'key': license_key,
@@ -229,11 +232,9 @@ def handle_api():
                 })
             if not upgrade_key:
                 return signed_response({"success": False, "message": "Upgrade key not found or already used."}, resp_key)
-            # Find the existing user
             existing = db.db.app_users.find_one({'app_id': app['_id'], 'username': username, 'is_active': True})
             if not existing:
                 return signed_response({"success": False, "message": "User not found."}, resp_key)
-            # Extend expiry
             base = existing.get('expiry') or datetime.utcnow()
             if base < datetime.utcnow():
                 base = datetime.utcnow()
@@ -241,43 +242,83 @@ def handle_api():
             days = int(pkg.get('duration_days', 30)) if pkg else 30
             new_expiry = base + timedelta(days=days)
             db.db.app_users.update_one({'_id': existing['_id']}, {'$set': {'expiry': new_expiry}})
-            # Mark upgrade key as used
             db.db.app_users.update_one({'_id': upgrade_key['_id']}, {'$set': {'username': f'__used__{username}', 'is_active': False}})
             db.add_log(app['_id'], username, f"Upgraded subscription with key {license_key}", ip)
-            return signed_response({"success": True, "message": "Subscription extended successfully."}, resp_key)
+            return signed_response({"success": True, "message": "Upgraded successfully", "nonce": nonce()}, resp_key)
 
         # ── The remaining actions require an authenticated session ─────────────
         if not session.get('validated'):
-            return signed_response({"success": False, "message": "Not authenticated. Please login first."}, resp_key)
+            return signed_response({"success": False, "message": "Session is not authenticated. Please use the login or license endpoint first."}, resp_key)
 
         credential = session.get('credential', '')
 
         # ── Check (session still valid?) ──────────────────────────────────────
         if app_type == 'check':
-            return signed_response({"success": True, "message": "Session validated."}, resp_key)
+            return signed_response({"success": True, "message": "Session is validated.", "nonce": nonce()}, resp_key)
 
         # ── Log (write a custom log entry) ────────────────────────────────────
         if app_type == 'log':
-            pcname = data.get('pcname', 'Unknown')
+            pcname = data.get('pcuser') or data.get('pcname', 'Unknown')
             msg = data.get('message', '')
             db.add_log(app['_id'], credential, f"[{pcname}] {msg}", ip)
-            return signed_response({"success": True, "message": "Log added."}, resp_key)
+            resp = make_response('')
+            resp.headers['Content-Type'] = 'application/json'
+            return resp
 
         # ── Var (get a remote variable) ───────────────────────────────────────
         if app_type == 'var':
             varid = data.get('varid', '').strip()
             vardata = db.get_app_var(app['_id'], varid)
             if vardata is not None:
-                return signed_response({"success": True, "message": vardata}, resp_key)
+                return signed_response({"success": True, "message": vardata, "nonce": nonce()}, resp_key)
             return signed_response({"success": False, "message": "Variable not found."}, resp_key)
 
         # ── Check Blacklist ───────────────────────────────────────────────────
         if app_type == 'checkblacklist':
             is_banned = db.check_blacklisted(app['_id'], hwid=hwid or None, ip=ip or None)
+            if is_banned:
+                return signed_response({"success": True, "message": "Client is blacklisted", "nonce": nonce()}, resp_key)
+            return signed_response({"success": False, "message": "Client is not blacklisted"}, resp_key)
+
+        # ── Fetch Online Users ────────────────────────────────────────────────
+        if app_type == 'fetchOnline':
+            online = db.get_online_users(app['_id'])
+            users = [{"credential": u} for u in online]
+            if not users:
+                return signed_response({"success": False, "message": "No online users found!"}, resp_key)
+            return signed_response({"success": True, "message": "Successfully fetched online users.", "users": users, "nonce": nonce()}, resp_key)
+
+        # ── Fetch Stats ───────────────────────────────────────────────────────
+        if app_type == 'fetchStats':
+            stats = db.get_app_stats(app['_id'])
+            domain = request.host_url.rstrip('/')
             return signed_response({
-                "success": is_banned,
-                "message": "Banned" if is_banned else "Not banned"
+                "success": True,
+                "message": "Successfully fetched stats",
+                "appinfo": {
+                    "numUsers": str(stats.get('numUsers', 0)),
+                    "numOnlineUsers": str(stats.get('numOnlineUsers', 0)),
+                    "numKeys": str(stats.get('numKeys', 0)),
+                    "version": str(app.get('version', '1.0')),
+                    "customerPanelLink": domain
+                },
+                "nonce": nonce()
             }, resp_key)
+
+        # ── Ban (ban current user) ────────────────────────────────────────────
+        if app_type == 'ban':
+            reason = data.get('reason', 'Banned via client') or 'Banned via client'
+            db.db.app_users.update_one(
+                {'app_id': app['_id'], 'username': credential},
+                {'$set': {'is_active': False, 'ban_reason': reason}}
+            )
+            db.add_log(app['_id'], credential, f"Self-banned: {reason}", ip)
+            return signed_response({"success": True, "message": "Successfully Banned User", "nonce": nonce()}, resp_key)
+
+        # ── Logout ────────────────────────────────────────────────────────────
+        if app_type == 'logout':
+            db.delete_session(sessionid)
+            return signed_response({"success": True, "message": "Successfully logged out.", "nonce": nonce()}, resp_key)
 
         # ── Chat: Get messages ────────────────────────────────────────────────
         if app_type == 'chatget':
@@ -294,16 +335,16 @@ def handle_api():
                     "message": m.get('message', ''),
                     "timestamp": ts
                 })
-            return signed_response({"success": True, "message": "Messages retrieved.", "messages": formatted}, resp_key)
+            return signed_response({"success": True, "message": "Successfully retrieved chat messages", "messages": formatted, "nonce": nonce()}, resp_key)
 
         # ── Chat: Send message ────────────────────────────────────────────────
         if app_type == 'chatsend':
             channel = data.get('channel', 'global')
             message = data.get('message', '').strip()
             if not message:
-                return signed_response({"success": False, "message": "Message cannot be empty."}, resp_key)
+                return signed_response({"success": False, "message": "Message can't be blank"}, resp_key)
             if db.send_chat_message(app['_id'], channel, credential, message):
-                return signed_response({"success": True, "message": "Message sent."}, resp_key)
+                return signed_response({"success": True, "message": "Successfully sent chat message", "nonce": nonce()}, resp_key)
             return signed_response({"success": False, "message": "Failed to send message."}, resp_key)
 
         return signed_response({"success": False, "message": f"Unknown action: {app_type}"}, resp_key)
