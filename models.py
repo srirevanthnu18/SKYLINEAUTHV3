@@ -12,7 +12,7 @@ class Database:
         self.client = None
         self.db = None
         self.mode = 'mongo'
-    
+
     def init_app(self, app):
         mongo_uri = app.config.get('MONGO_URI')
         if not mongo_uri:
@@ -25,7 +25,7 @@ class Database:
         self.db.app_users.create_index('key', unique=True)
         self.db.app_users.create_index('username', sparse=True)
         self.db.sessions.create_index('session_id', unique=True)
-        self.db.sessions.create_index('created_at', expireAfterSeconds=86400) # Auto-delete sessions after 24h
+        self.db.sessions.create_index('created_at', expireAfterSeconds=86400)
 
     def _to_id(self, val):
         if isinstance(val, ObjectId):
@@ -39,7 +39,7 @@ class Database:
 
     def _now(self):
         return datetime.utcnow()
-    
+
     # ── Admin / Reseller account management ──────────────────────────
 
     def create_admin(self, username, password, email, role, created_by=None):
@@ -67,16 +67,15 @@ class Database:
         if self.mode == 'mongo':
             admin = self.db.admins.find_one({'username': username, 'is_active': True})
             if admin and check_password_hash(admin.get('password', ''), password):
-                admin['_id'] = admin['_id']
                 return admin
-            return None
+        return None
 
     def verify_app_user(self, key, password):
         if self.mode == 'mongo':
             user = self.db.app_users.find_one({'key': key})
             if user and check_password_hash(user.get('password', ''), password):
                 return user
-            return None
+        return None
 
     def get_admin_by_id(self, admin_id):
         if self.mode == 'mongo':
@@ -89,8 +88,7 @@ class Database:
             q = {}
             if role:
                 q['role'] = role
-            admins = list(self.db.admins.find(q).sort('created_at', -1))
-            return admins
+            return list(self.db.admins.find(q).sort('created_at', -1))
 
     def update_admin(self, admin_id, data):
         if self.mode == 'mongo':
@@ -115,14 +113,15 @@ class Database:
     def update_login_ip(self, admin_id, ip_address):
         if self.mode == 'mongo':
             oid = self._to_id(admin_id)
-            self.db.admins.update_one({'_id': oid}, {'$set': {'last_login_ip': ip_address, 'last_login_at': self._now()}})
-            return
+            self.db.admins.update_one(
+                {'_id': oid},
+                {'$set': {'last_login_ip': ip_address, 'last_login_at': self._now()}}
+            )
 
     def delete_admin(self, admin_id):
         if self.mode == 'mongo':
             oid = self._to_id(admin_id)
             self.db.admins.delete_one({'_id': oid})
-            return
 
     def count_admins(self, role=None):
         if self.mode == 'mongo':
@@ -135,15 +134,21 @@ class Database:
 
     def create_app(self, name, owner_id):
         if self.mode == 'mongo':
+            # FIX: Resolve the admin's username to use as ownerid (KeyAuth compatible)
+            # owner_id here is the MongoDB _id of the admin
+            owner_username = self._get_owner_username(owner_id)
             doc = {
                 'name': name,
                 'secret_key': secrets.token_hex(32),
-                'owner_id': self._to_id(owner_id),
+                # FIX: Store owner_id as plain string (username), not ObjectId
+                # Official KeyAuth SDKs send ownerid as a plain username string
+                'owner_id': owner_username,
+                # Keep a reference to the admin ObjectId for internal dashboard lookups
+                'owner_mongo_id': self._to_id(owner_id),
                 'version': '1.0',
                 'variables': {},
                 'created_at': self._now(),
                 'is_active': True,
-                # New compatibility fields
                 'is_paused': False,
                 'hwid_check': True,
                 'vpn_block': False,
@@ -158,7 +163,16 @@ class Database:
             res = self.db.apps.insert_one(doc)
             return str(res.inserted_id)
 
-
+    def _get_owner_username(self, owner_id):
+        """Resolve an admin _id to their username string for KeyAuth ownerid compatibility."""
+        try:
+            oid = self._to_id(owner_id)
+            admin = self.db.admins.find_one({'_id': oid})
+            if admin:
+                return admin.get('username', str(owner_id))
+        except Exception:
+            pass
+        return str(owner_id)
 
     def update_app_settings(self, app_id, data):
         if self.mode == 'mongo':
@@ -174,7 +188,6 @@ class Database:
             for field in allowed:
                 if field in data:
                     update_fields[field] = data[field]
-            
             if update_fields:
                 self.db.apps.update_one({'_id': oid}, {'$set': update_fields})
                 return True
@@ -187,28 +200,54 @@ class Database:
             return True
 
     def get_app_by_details(self, name, secret, owner_id):
+        """
+        FIX: Look up app by name + secret_key + owner_id (plain string).
+        Official KeyAuth SDKs send ownerid as a plain username string,
+        so we compare against the stored owner_id string field directly.
+        We also fall back to owner_mongo_id for apps created before this fix.
+        """
         if self.mode == 'mongo':
-            # Strict validation
-            q = {
+            # Primary lookup: owner_id stored as plain username string (new way)
+            app = self.db.apps.find_one({
                 'name': name,
                 'secret_key': secret,
-                'owner_id': self._to_id(owner_id),
+                'owner_id': str(owner_id),
                 'is_active': True
-            }
-            return self.db.apps.find_one(q)
+            })
+            if app:
+                return app
+
+            # Fallback: owner_mongo_id stored as ObjectId (old apps before fix)
+            oid = self._to_id(owner_id)
+            if oid:
+                app = self.db.apps.find_one({
+                    'name': name,
+                    'secret_key': secret,
+                    'owner_mongo_id': oid,
+                    'is_active': True
+                })
+                if app:
+                    return app
+
+            # Last resort fallback: owner_id stored as ObjectId string (original broken behaviour)
+            app = self.db.apps.find_one({
+                'name': name,
+                'secret_key': secret,
+                'owner_id': oid,
+                'is_active': True
+            })
+            return app
 
     def get_app_stats(self, app_id):
         if self.mode == 'mongo':
             oid = self._to_id(app_id)
             num_users = self.db.app_users.count_documents({'app_id': oid})
             num_keys = self.db.app_users.count_documents({'app_id': oid})
-            
             recent = self._now() - timedelta(minutes=10)
             num_online = self.db.app_users.count_documents({
                 'app_id': oid,
                 'last_login': {'$gte': recent}
             })
-            
             return {
                 'numUsers': str(num_users),
                 'numOnlineUsers': str(num_online),
@@ -220,7 +259,7 @@ class Database:
             app = self.get_app_by_id(app_id)
             if app and 'variables' in app:
                 return app['variables'].get(varid)
-            return None
+        return None
 
     def set_app_var(self, app_id, varid, vardata):
         if self.mode == 'mongo':
@@ -292,11 +331,23 @@ class Database:
             return True
 
     def get_apps(self, owner_id=None):
+        """
+        FIX: Support both old (ObjectId) and new (string username) owner_id storage.
+        """
         if self.mode == 'mongo':
-            q = {}
             if owner_id:
-                q['owner_id'] = self._to_id(owner_id)
-            return list(self.db.apps.find(q).sort('created_at', -1))
+                # Try to resolve to username first
+                owner_username = self._get_owner_username(owner_id)
+                # Match either new string format or old ObjectId format
+                apps = list(self.db.apps.find({
+                    '$or': [
+                        {'owner_id': owner_username},
+                        {'owner_id': self._to_id(owner_id)},
+                        {'owner_mongo_id': self._to_id(owner_id)},
+                    ]
+                }).sort('created_at', -1))
+                return apps
+            return list(self.db.apps.find({}).sort('created_at', -1))
 
     def get_app_by_id(self, app_id):
         if self.mode == 'mongo':
@@ -310,24 +361,32 @@ class Database:
             self.db.app_users.delete_many({'app_id': oid})
             self.db.packages.delete_many({'app_id': oid})
             self.db.apps.delete_one({'_id': oid})
-            return
 
     def toggle_app(self, app_id):
         if self.mode == 'mongo':
             oid = self._to_id(app_id)
             app = self.db.apps.find_one({'_id': oid})
             if app:
-                self.db.apps.update_one({'_id': oid}, {'$set': {'is_active': not app.get('is_active', True)}})
-            return
+                self.db.apps.update_one(
+                    {'_id': oid},
+                    {'$set': {'is_active': not app.get('is_active', True)}}
+                )
 
     def count_apps(self, owner_id=None):
+        """FIX: Count apps using both old and new owner_id formats."""
         if self.mode == 'mongo':
-            q = {}
             if owner_id:
-                q['owner_id'] = self._to_id(owner_id)
-            return self.db.apps.count_documents(q)
+                owner_username = self._get_owner_username(owner_id)
+                return self.db.apps.count_documents({
+                    '$or': [
+                        {'owner_id': owner_username},
+                        {'owner_id': self._to_id(owner_id)},
+                        {'owner_mongo_id': self._to_id(owner_id)},
+                    ]
+                })
+            return self.db.apps.count_documents({})
 
-    # ── Session management (for protocol compatibility) ─────────────
+    # ── Session management ─────────────────────────────────────────
 
     def create_session(self, app_id, sent_key):
         if self.mode == 'mongo':
@@ -368,7 +427,6 @@ class Database:
         if self.mode == 'mongo':
             oid = self._to_id(admin_id)
             self.db.admins.update_one({'_id': oid}, {'$inc': {'credits': int(amount)}})
-            return
 
     def deduct_credits(self, admin_id, amount=1):
         if self.mode == 'mongo':
@@ -400,7 +458,7 @@ class Database:
             if from_admin.get('role') != 'superadmin':
                 if int(from_admin.get('credits', 0)) < amount:
                     return False, 'Not enough credits'
-                self.db.admins.update_one({'_id': from_oid}, {'$inc': {'credits': -amount}})
+            self.db.admins.update_one({'_id': from_oid}, {'$inc': {'credits': -amount}})
             self.db.admins.update_one({'_id': to_oid}, {'$inc': {'credits': amount}})
             return True, None
 
@@ -433,7 +491,6 @@ class Database:
                     is_license = False
                 else:
                     key = f"SKYLINE-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}-{secrets.token_hex(4).upper()}"
-                    # For licenses, the password IS the key (standard KeyAuth behavior)
                     raw_password = key
                     is_license = True
                 if self.db.app_users.find_one({'key': key}):
@@ -467,7 +524,6 @@ class Database:
     def delete_app_user(self, user_id):
         if self.mode == 'mongo':
             self.db.app_users.delete_one({'_id': self._to_id(user_id)})
-            return
 
     def count_app_users(self, app_id=None, created_by=None):
         if self.mode == 'mongo':
@@ -482,8 +538,10 @@ class Database:
         if self.mode == 'mongo':
             user = self.db.app_users.find_one({'_id': self._to_id(user_id)})
             if user:
-                self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'is_active': not user.get('is_active', True)}})
-            return
+                self.db.app_users.update_one(
+                    {'_id': user['_id']},
+                    {'$set': {'is_active': not user.get('is_active', True)}}
+                )
 
     # ── Package management ───────────────────────────────────────────
 
@@ -513,7 +571,6 @@ class Database:
     def delete_package(self, package_id):
         if self.mode == 'mongo':
             self.db.packages.delete_one({'_id': self._to_id(package_id)})
-            return
 
     def count_packages(self, app_id=None):
         if self.mode == 'mongo':
@@ -544,14 +601,11 @@ class Database:
             app = self.db.apps.find_one({'secret_key': app_secret})
             if not app:
                 return None, 'Invalid application'
-
-            # Look up by username field first (registered accounts)
             user = self.db.app_users.find_one({
                 'app_id': app['_id'],
                 'username': username,
                 'is_active': True
             })
-            # Fallback: allow login using the raw key as username (unregistered/key-only accounts)
             if not user:
                 user = self.db.app_users.find_one({
                     'app_id': app['_id'],
@@ -560,17 +614,13 @@ class Database:
                 })
             if not user:
                 return None, 'Invalid username or password'
-
             if not check_password_hash(user.get('password', ''), password):
                 return None, 'Invalid username or password'
-
             if user.get('expiry') and user['expiry'] < self._now():
                 return None, 'Subscription expired'
-
             user, err = self._apply_hwid(user, hwid, app)
             if err:
                 return None, err
-
             self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'last_login': self._now()}})
             return user, None
 
@@ -580,7 +630,6 @@ class Database:
             app = self.db.apps.find_one({'secret_key': app_secret})
             if not app:
                 return None, 'Invalid application'
-
             user = self.db.app_users.find_one({
                 'app_id': app['_id'],
                 'key': license_key,
@@ -588,14 +637,11 @@ class Database:
             })
             if not user:
                 return None, 'Invalid license key'
-
             if user.get('expiry') and user['expiry'] < self._now():
                 return None, 'License expired'
-
             user, err = self._apply_hwid(user, hwid, app)
             if err:
                 return None, err
-
             self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'last_login': self._now()}})
             return user, None
 
@@ -605,12 +651,8 @@ class Database:
             app = self.db.apps.find_one({'secret_key': app_secret})
             if not app:
                 return None, 'Invalid application'
-
-            # Username must not already be taken
             if self.db.app_users.find_one({'app_id': app['_id'], 'username': username}):
                 return None, 'Username already taken'
-
-            # Find the license key — must exist, be active, and NOT yet have a username (unused)
             key_data = self.db.app_users.find_one({
                 'app_id': app['_id'],
                 'key': license_key,
@@ -620,13 +662,9 @@ class Database:
                 return None, 'Invalid license key'
             if key_data.get('username'):
                 return None, 'License key already used'
-
             if key_data.get('expiry') and key_data['expiry'] < self._now():
                 return None, 'License key expired'
-
-            # Apply HWID to the new account
             new_hwid = key_data.get('hwid') or hwid or ''
-
             self.db.app_users.update_one(
                 {'_id': key_data['_id']},
                 {'$set': {
@@ -639,10 +677,6 @@ class Database:
             key_data['username'] = username
             key_data['hwid'] = new_hwid
             return key_data, None
-
-
-
-
 
     # ── Backup ───────────────────────────────────────────────────────
 
@@ -665,7 +699,7 @@ class Database:
             }
             with open(backup_path, 'w') as f:
                 json.dump(data, f, indent=2, default=serialize)
-            return backup_path
+        return backup_path
 
     def get_last_backup_time(self, backup_dir):
         os.makedirs(backup_dir, exist_ok=True)
@@ -683,14 +717,12 @@ class Database:
             oid = self._to_id(reseller_id)
             pkg_oid = self._to_id(package_id)
             self.db.admins.update_one({'_id': oid}, {'$addToSet': {'assigned_packages': pkg_oid}})
-            return
 
     def remove_package_from_reseller(self, reseller_id, package_id):
         if self.mode == 'mongo':
             oid = self._to_id(reseller_id)
             pkg_oid = self._to_id(package_id)
             self.db.admins.update_one({'_id': oid}, {'$pull': {'assigned_packages': pkg_oid}})
-            return
 
     def get_reseller_packages(self, reseller_id):
         if self.mode == 'mongo':
@@ -704,7 +736,6 @@ class Database:
     def reset_hwid(self, user_id):
         if self.mode == 'mongo':
             self.db.app_users.update_one({'_id': self._to_id(user_id)}, {'$set': {'hwid': ''}})
-            return
 
     def extend_license(self, user_id, days):
         if self.mode == 'mongo':
@@ -715,25 +746,20 @@ class Database:
                     current_expiry = self._now()
                 new_expiry = current_expiry + timedelta(days=int(days))
                 self.db.app_users.update_one({'_id': user['_id']}, {'$set': {'expiry': new_expiry}})
-            return
 
     def ban_license(self, user_id):
         if self.mode == 'mongo':
             self.db.app_users.update_one({'_id': self._to_id(user_id)}, {'$set': {'is_active': False}})
-            return
 
     def unban_license(self, user_id):
         if self.mode == 'mongo':
             self.db.app_users.update_one({'_id': self._to_id(user_id)}, {'$set': {'is_active': True}})
-            return
 
     def get_app_user_by_id(self, user_id):
         if self.mode == 'mongo':
             return self.db.app_users.find_one({'_id': self._to_id(user_id)})
 
     def get_license_by_id(self, license_id):
-        # This was referencing a 'licenses' collection that doesn't exist in the schema
-        # Mapping to app_users for compatibility
         return self.get_app_user_by_id(license_id)
 
     # ── Blacklists ───────────────────────────────────────────────────
@@ -743,7 +769,7 @@ class Database:
             doc = {
                 'app_id': self._to_id(app_id),
                 'item': item,
-                'type': blacklist_type, # 'hwid', 'ip', or 'dns'
+                'type': blacklist_type,
                 'created_at': self._now()
             }
             res = self.db.blacklists.insert_one(doc)
@@ -756,7 +782,6 @@ class Database:
     def delete_blacklist(self, blacklist_id):
         if self.mode == 'mongo':
             self.db.blacklists.delete_one({'_id': self._to_id(blacklist_id)})
-            return
 
     def check_blacklisted(self, app_id, hwid=None, ip=None):
         if self.mode == 'mongo':
@@ -816,7 +841,6 @@ class Database:
         if self.mode == 'mongo':
             channel = self.db.chats.find_one({'app_id': self._to_id(app_id), 'name': channel_name})
             if not channel: return False
-            
             doc = {
                 'channel_id': channel['_id'],
                 'app_id': self._to_id(app_id),
@@ -861,7 +885,6 @@ class Database:
             'resellers': self.count_admins(role='reseller'),
         }
 
-
     # ── Chat / Messaging ──────────────────────────────────────────────
 
     def _ensure_chat_indexes(self):
@@ -883,12 +906,11 @@ class Database:
         return doc
 
     def get_chat_history(self, room_id, limit=100):
-        msgs = list(
+        return list(
             self.db.chat_messages.find({'room_id': room_id})
             .sort('timestamp', 1)
             .limit(limit)
         )
-        return msgs
 
     def mark_messages_read(self, room_id, reader_username):
         self.db.chat_messages.update_many(
@@ -901,6 +923,47 @@ class Database:
             {'room_id': room_id, 'to_username': reader_username, 'read': False}
         )
 
+    # ── Migration helper ─────────────────────────────────────────────
+
+    def migrate_owner_ids_to_username(self):
+        """
+        One-time migration: convert all apps with ObjectId owner_id to plain username strings.
+        Call this once after deploying this fix on an existing database.
+        Run from a Flask shell: from models import db; db.migrate_owner_ids_to_username()
+        """
+        if self.mode != 'mongo':
+            return
+        apps = list(self.db.apps.find({}))
+        migrated = 0
+        for app in apps:
+            oid = app.get('owner_id')
+            # Skip apps already migrated (owner_id is a string, not ObjectId)
+            if isinstance(oid, str) and len(oid) != 24:
+                continue
+            # Try to resolve to username
+            if isinstance(oid, ObjectId):
+                admin = self.db.admins.find_one({'_id': oid})
+            elif isinstance(oid, str):
+                try:
+                    admin = self.db.admins.find_one({'_id': ObjectId(oid)})
+                except Exception:
+                    admin = None
+            else:
+                admin = None
+
+            if admin:
+                username = admin.get('username')
+                self.db.apps.update_one(
+                    {'_id': app['_id']},
+                    {'$set': {
+                        'owner_id': username,
+                        'owner_mongo_id': admin['_id']
+                    }}
+                )
+                migrated += 1
+
+        print(f"Migration complete: {migrated}/{len(apps)} apps updated.")
+        return migrated
+
 
 db = Database()
-
