@@ -94,7 +94,16 @@ def handle_api():
         if not ownerid or not name:
             return jsonify({"success": False, "message": "OwnerID and name are required."})
 
-        app = db.db.apps.find_one({'name': name, 'owner_id': db._to_id(ownerid)})
+        # Look up by name + ownerid using a 3-way $or to support:
+        #   1. New format: owner_id stored as plain username string
+        #   2. owner_mongo_id stored as ObjectId (apps created after the fix, internal ref)
+        #   3. Legacy format: owner_id stored as ObjectId string (apps created before the fix)
+        oid = db._to_id(ownerid)
+        or_clauses = [{'owner_id': ownerid}]
+        if oid:
+            or_clauses.append({'owner_mongo_id': oid})
+            or_clauses.append({'owner_id': oid})
+        app = db.db.apps.find_one({'name': name, '$or': or_clauses})
         if not app:
             return "KeyAuth_Invalid"
 
