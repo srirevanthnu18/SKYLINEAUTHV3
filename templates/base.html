@@ -65,7 +65,7 @@
             </a>
             {% endif %}
 
-            {% if session.get('role') in ['superadmin', 'admin', 'reseller'] or session.get('user_id') %}
+            {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
             <div class="nav-section-label">Account</div>
             <a href="{{ url_for('chat.index') }}"
                class="nav-item {% if request.endpoint and 'chat' in request.endpoint %}active{% endif %}">
@@ -73,8 +73,6 @@
                 <span>Messages</span>
                 <span id="chat-sidebar-badge"></span>
             </a>
-            {% endif %}
-            {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
             <a href="{{ url_for('profile.index') }}"
                class="nav-item {% if request.endpoint and 'profile' in request.endpoint %}active{% endif %}">
                 <i class="fas fa-user-circle"></i><span>Profile</span>
@@ -159,14 +157,6 @@
     }
     loadUnread();
     setInterval(loadUnread, 30000);
-})();
-
-// Auto logout after 3 minutes
-(function(){
-    var TIMEOUT_MS = 3 * 60 * 1000;
-    setTimeout(function(){
-        window.location.href = '{{ url_for("auth.logout") }}';
-    }, TIMEOUT_MS);
 })();
 </script>
 {% endif %}

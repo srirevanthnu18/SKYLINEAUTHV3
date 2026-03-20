@@ -28,11 +28,7 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
                class="contact-item {% if active_contact and active_contact.username == c.username %}active{% endif %}"
                data-user="{{ c.username }}">
                 <div class="contact-avatar-wrap">
-                    {% if c.profile_pic %}
-                    <img src="{{ c.profile_pic }}" alt="{{ c.username }}" class="contact-avatar contact-avatar-img">
-                    {% else %}
                     <div class="contact-avatar role-{{ c.color }}">{{ c.initial }}</div>
-                    {% endif %}
                     <span class="contact-dot online-dot" data-user="{{ c.username }}"></span>
                 </div>
                 <div class="contact-info">
@@ -58,11 +54,9 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
         <!-- Top Bar -->
         <div class="chat-topbar">
             <div class="chat-topbar-left">
-                {% if active_contact.profile_pic %}
-                <img src="{{ active_contact.profile_pic }}" alt="{{ active_contact.username }}" class="chat-avatar-lg chat-avatar-img">
-                {% else %}
-                <div class="chat-avatar-lg role-{{ active_contact.color }}">{{ active_contact.initial }}</div>
-                {% endif %}
+                <div class="chat-avatar-lg role-{{ active_contact.color }}">
+                    {{ active_contact.initial }}
+                </div>
                 <div class="chat-topbar-info">
                     <span class="chat-topbar-name">{{ active_contact.username }}</span>
                     <span id="chat-status-text" class="chat-status-online">Online</span>
@@ -87,11 +81,7 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
             {% set is_mine = msg.from_username == me.username %}
             {% set rc = 'admin' if msg.from_role in ['admin','superadmin'] else ('reseller' if msg.from_role == 'reseller' else 'user') %}
             <div class="msg-wrap {% if is_mine %}mine{% else %}theirs{% endif %}">
-                {% if msg.profile_pic %}
-                <img src="{{ msg.profile_pic }}" alt="{{ msg.from_username }}" class="msg-avatar msg-avatar-img">
-                {% else %}
                 <div class="msg-avatar role-{{ rc }}">{{ msg.from_username[0]|upper }}</div>
-                {% endif %}
                 <div class="msg-body">
                     {% if not is_mine %}
                     <div class="msg-meta">

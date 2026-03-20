@@ -16,20 +16,16 @@ def login_required(f):
 
 def _current_user():
     if 'admin_id' in session:
-        admin = db.db.admins.find_one({'username': session['username']})
-        pic = admin.get('profile_pic') if admin else None
         return {
             'id': session['admin_id'],
             'username': session['username'],
             'role': session['role'],
-            'profile_pic': f'/static/uploads/{pic}' if pic else None,
         }
     if 'user_id' in session:
         return {
             'id': session['user_id'],
             'username': session['username'],
             'role': 'user',
-            'profile_pic': None,
         }
     return None
 
@@ -53,6 +49,7 @@ def _role_label(role):
 
 
 def _get_contacts(me):
+    role = me['role']
     contacts = []
 
     all_admins = db.get_admins()
@@ -60,15 +57,16 @@ def _get_contacts(me):
         uname = a['username']
         if uname == me['username']:
             continue
-        pic = a.get('profile_pic')
         contacts.append({
             'username': uname,
             'role': a['role'],
             'display_role': _role_label(a['role']),
             'color': _role_color(a['role']),
             'initial': uname[0].upper(),
-            'profile_pic': f'/static/uploads/{pic}' if pic else None,
         })
+
+    if role in ('superadmin', 'admin'):
+        pass
 
     return contacts
 
@@ -111,14 +109,12 @@ def conversation(target_username):
     if not active:
         admin = db.db.admins.find_one({'username': target_username})
         if admin:
-            pic = admin.get('profile_pic')
             active = {
                 'username': admin['username'],
                 'role': admin['role'],
                 'display_role': _role_label(admin['role']),
                 'color': _role_color(admin['role']),
                 'initial': admin['username'][0].upper(),
-                'profile_pic': f'/static/uploads/{pic}' if pic else None,
             }
 
     if not active:
@@ -127,16 +123,6 @@ def conversation(target_username):
     room = '_'.join(sorted([me['username'], target_username]))
     db.mark_messages_read(room, me['username'])
     messages = db.get_chat_history(room)
-
-    # Attach profile_pic to each message for avatar display
-    pic_cache = {}
-    for msg in messages:
-        sender = msg.get('from_username', '')
-        if sender not in pic_cache:
-            adm = db.db.admins.find_one({'username': sender}, {'profile_pic': 1})
-            pic = adm.get('profile_pic') if adm else None
-            pic_cache[sender] = f'/static/uploads/{pic}' if pic else None
-        msg['profile_pic'] = pic_cache[sender]
 
     total_unread = sum(c['unread'] for c in contacts)
 
