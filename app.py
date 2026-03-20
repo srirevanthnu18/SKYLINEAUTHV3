@@ -49,6 +49,7 @@ def create_app():
         from routes.discord_mgmt import discord_mgmt_bp
         from routes.apps_extra import apps_extra_bp
         from routes.chat import chat_bp
+        from routes.user_files import user_files_bp
 
         app.register_blueprint(auth_bp)
         app.register_blueprint(dashboard_bp)
@@ -62,6 +63,7 @@ def create_app():
         app.register_blueprint(discord_mgmt_bp)
         app.register_blueprint(apps_extra_bp)
         app.register_blueprint(chat_bp)
+        app.register_blueprint(user_files_bp)
 
         from socket_events import register_events
         register_events(socketio, db)
