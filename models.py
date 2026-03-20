@@ -903,6 +903,70 @@ class Database:
 
     # ── Chat / Messaging ──────────────────────────────────────────────
 
+    def get_all_panel_members(self, exclude_username=None):
+        """Return every person who can use the panel: admins + active app-users."""
+        members = []
+        if self.mode != 'mongo':
+            return members
+
+        role_color = {
+            'superadmin': 'admin', 'admin': 'admin',
+            'reseller': 'reseller', 'user': 'user',
+        }
+        role_label = {
+            'superadmin': 'Super Admin', 'admin': 'Admin',
+            'reseller': 'Reseller', 'user': 'User',
+        }
+
+        for a in self.db.admins.find({}, {'username': 1, 'role': 1}):
+            uname = a.get('username', '')
+            if exclude_username and uname == exclude_username:
+                continue
+            role = a.get('role', 'admin')
+            members.append({
+                'username': uname,
+                'role': role,
+                'display_role': role_label.get(role, role.title()),
+                'color': role_color.get(role, 'admin'),
+                'initial': uname[0].upper() if uname else '?',
+                'type': 'admin',
+            })
+
+        for u in self.db.app_users.find({'is_active': True}, {'username': 1, 'key': 1}).limit(200):
+            uname = u.get('username') or u.get('key', '')
+            if not uname:
+                continue
+            if exclude_username and uname == exclude_username:
+                continue
+            display = uname if len(uname) <= 20 else uname[:16] + '…'
+            members.append({
+                'username': uname,
+                'display_name': display,
+                'role': 'user',
+                'display_role': 'User',
+                'color': 'user',
+                'initial': uname[0].upper(),
+                'type': 'user',
+            })
+
+        return members
+
+    def get_last_message(self, room_id):
+        """Return the latest message document in a room, or None."""
+        if self.mode == 'mongo':
+            return self.db.chat_messages.find_one(
+                {'room_id': room_id},
+                sort=[('timestamp', -1)]
+            )
+
+    def get_total_unread(self, reader_username):
+        """Count all unread messages across every room for this user."""
+        if self.mode == 'mongo':
+            return self.db.chat_messages.count_documents(
+                {'to_username': reader_username, 'read': False}
+            )
+        return 0
+
     def _ensure_chat_indexes(self):
         self.db.chat_messages.create_index([('room_id', 1), ('timestamp', 1)])
         self.db.chat_messages.create_index('to_username')
