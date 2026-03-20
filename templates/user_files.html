@@ -1,0 +1,320 @@
+{% extends "base.html" %}
+{% block title %}SKYLINE — Downloads{% endblock %}
+{% block page_title %}Downloads{% endblock %}
+
+{% block content %}
+<style>
+/* ── Hero Banner ─────────────────────────────────────────────── */
+.files-hero {
+    position: relative;
+    overflow: hidden;
+    border-radius: 20px;
+    padding: 36px 36px 32px;
+    margin-bottom: 28px;
+    background:
+        radial-gradient(ellipse 80% 80% at 10% 20%, rgba(0,217,255,0.18) 0%, transparent 55%),
+        radial-gradient(ellipse 60% 60% at 90% 10%, rgba(124,58,237,0.22) 0%, transparent 50%),
+        linear-gradient(135deg, rgba(14,14,22,0.97), rgba(20,20,32,0.97));
+    border: 1px solid rgba(0,217,255,0.18);
+    box-shadow: 0 0 60px rgba(0,217,255,0.07), 0 20px 60px rgba(0,0,0,0.4);
+    display: flex;
+    align-items: center;
+    gap: 24px;
+}
+.files-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: repeating-linear-gradient(
+        90deg, transparent, transparent 60px,
+        rgba(0,217,255,0.015) 60px, rgba(0,217,255,0.015) 61px
+    ),
+    repeating-linear-gradient(
+        0deg, transparent, transparent 60px,
+        rgba(0,217,255,0.015) 60px, rgba(0,217,255,0.015) 61px
+    );
+    pointer-events: none;
+}
+.files-hero-icon {
+    flex-shrink: 0;
+    width: 72px; height: 72px;
+    border-radius: 18px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 32px;
+    background: linear-gradient(135deg, rgba(0,217,255,0.15), rgba(124,58,237,0.2));
+    border: 1px solid rgba(0,217,255,0.3);
+    box-shadow: 0 0 30px rgba(0,217,255,0.2), inset 0 0 20px rgba(0,217,255,0.05);
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+    0%,100% { box-shadow: 0 0 30px rgba(0,217,255,0.2), inset 0 0 20px rgba(0,217,255,0.05); }
+    50%      { box-shadow: 0 0 50px rgba(0,217,255,0.4), inset 0 0 30px rgba(0,217,255,0.1); }
+}
+.files-hero-info h1 {
+    font-size: 24px; font-weight: 800;
+    background: linear-gradient(90deg, #00d9ff, #a78bfa);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+    margin: 0 0 6px;
+}
+.files-hero-info p { color: #888; font-size: 14px; margin: 0; }
+.files-hero-count {
+    margin-left: auto; flex-shrink: 0;
+    display: flex; flex-direction: column; align-items: center;
+    padding: 16px 28px;
+    border-radius: 14px;
+    background: rgba(0,217,255,0.06);
+    border: 1px solid rgba(0,217,255,0.15);
+}
+.files-hero-count .count-num {
+    font-size: 40px; font-weight: 800; line-height: 1;
+    background: linear-gradient(135deg, #00d9ff, #7c3aed);
+    -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+}
+.files-hero-count .count-label { font-size: 12px; color: #666; margin-top: 4px; text-transform: uppercase; letter-spacing: 1px; }
+
+/* ── Search Bar ─────────────────────────────────────────────── */
+.files-search-bar {
+    position: relative; margin-bottom: 24px;
+}
+.files-search-bar input {
+    width: 100%; padding: 14px 20px 14px 48px;
+    background: rgba(14,14,22,0.8);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; color: #e2e8f0; font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    outline: none; box-sizing: border-box;
+}
+.files-search-bar input:focus {
+    border-color: rgba(0,217,255,0.5);
+    box-shadow: 0 0 0 3px rgba(0,217,255,0.08);
+}
+.files-search-bar input::placeholder { color: #555; }
+.files-search-bar i {
+    position: absolute; left: 16px; top: 50%; transform: translateY(-50%);
+    color: #555; font-size: 15px; pointer-events: none;
+}
+
+/* ── File Grid ───────────────────────────────────────────────── */
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+/* ── File Card ───────────────────────────────────────────────── */
+.file-card {
+    position: relative; overflow: hidden;
+    border-radius: 16px;
+    background: linear-gradient(145deg, rgba(16,16,26,0.95), rgba(20,20,34,0.9));
+    border: 1px solid rgba(255,255,255,0.06);
+    transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease;
+    animation: card-in 0.4s ease both;
+}
+@keyframes card-in {
+    from { opacity:0; transform:translateY(16px); }
+    to   { opacity:1; transform:translateY(0);    }
+}
+.file-card:hover {
+    transform: translateY(-4px);
+    border-color: rgba(0,217,255,0.35);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 30px rgba(0,217,255,0.08);
+}
+.file-card::before {
+    content: '';
+    position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, #00d9ff, #7c3aed, #00d9ff);
+    background-size: 200%;
+    opacity: 0;
+    transition: opacity 0.3s;
+    animation: shimmer 2.5s linear infinite;
+}
+@keyframes shimmer { 0%{background-position:200%} 100%{background-position:-200%} }
+.file-card:hover::before { opacity: 1; }
+
+.file-card-body { padding: 22px 22px 16px; }
+.file-card-top { display: flex; align-items: flex-start; gap: 14px; margin-bottom: 14px; }
+
+.file-icon {
+    flex-shrink: 0;
+    width: 48px; height: 48px; border-radius: 12px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 20px;
+    background: linear-gradient(135deg, rgba(0,217,255,0.12), rgba(124,58,237,0.15));
+    border: 1px solid rgba(0,217,255,0.2);
+}
+
+.file-name {
+    font-size: 16px; font-weight: 700; color: #e2e8f0;
+    margin: 0 0 4px; word-break: break-word; line-height: 1.3;
+}
+.file-meta {
+    font-size: 12px; color: #555; display: flex; align-items: center; gap: 6px;
+}
+
+.file-card-footer {
+    padding: 14px 22px 18px;
+    display: flex; align-items: center; justify-content: space-between; gap: 12px;
+    border-top: 1px solid rgba(255,255,255,0.04);
+}
+.file-badge-auth {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600; letter-spacing: 0.3px;
+    background: rgba(0,255,136,0.1); color: #00ff88;
+    border: 1px solid rgba(0,255,136,0.25);
+}
+.file-badge-pub {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px; border-radius: 999px;
+    font-size: 11px; font-weight: 600;
+    background: rgba(255,180,0,0.1); color: #fbbf24;
+    border: 1px solid rgba(255,180,0,0.25);
+}
+
+.btn-download {
+    display: inline-flex; align-items: center; gap: 8px;
+    padding: 9px 20px; border-radius: 10px; text-decoration: none;
+    font-size: 13px; font-weight: 700; letter-spacing: 0.3px;
+    color: #0a0a14;
+    background: linear-gradient(135deg, #00d9ff, #7c3aed);
+    border: none; cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 16px rgba(0,217,255,0.25);
+    position: relative; overflow: hidden;
+    white-space: nowrap;
+}
+.btn-download::after {
+    content: '';
+    position: absolute; inset: 0;
+    background: linear-gradient(120deg, transparent 30%, rgba(255,255,255,0.25) 50%, transparent 70%);
+    transform: translateX(-100%);
+    transition: transform 0.4s;
+}
+.btn-download:hover::after { transform: translateX(100%); }
+.btn-download:hover {
+    opacity: 0.92; transform: scale(1.03);
+    box-shadow: 0 6px 24px rgba(0,217,255,0.4);
+}
+.btn-download:active { transform: scale(0.97); }
+
+/* ── Empty State ─────────────────────────────────────────────── */
+.files-empty {
+    text-align: center; padding: 80px 20px;
+    border-radius: 20px;
+    background: rgba(14,14,22,0.6);
+    border: 1px dashed rgba(255,255,255,0.08);
+}
+.files-empty-icon { font-size: 64px; margin-bottom: 16px; opacity: 0.3; }
+.files-empty h3 { color: #aaa; font-size: 18px; margin: 0 0 8px; }
+.files-empty p  { color: #555; font-size: 14px; margin: 0; }
+
+/* ── No-results ──────────────────────────────────────────────── */
+#no-results { display:none; }
+</style>
+
+<!-- Hero Banner -->
+<div class="files-hero">
+    <div class="files-hero-icon">
+        <i class="fas fa-cloud-download-alt" style="color:#00d9ff;"></i>
+    </div>
+    <div class="files-hero-info">
+        <h1>Download Center</h1>
+        <p>Official files and tools released for your license. Click any card to download.</p>
+    </div>
+    <div class="files-hero-count">
+        <span class="count-num">{{ files|length }}</span>
+        <span class="count-label">Files</span>
+    </div>
+</div>
+
+{% if files %}
+<!-- Search -->
+<div class="files-search-bar">
+    <i class="fas fa-search"></i>
+    <input type="text" id="file-search" placeholder="Search files…" oninput="filterFiles(this.value)">
+</div>
+
+<!-- File Grid -->
+<div class="files-grid" id="files-grid">
+    {% for file in files %}
+    <div class="file-card" data-name="{{ file.name|lower }}">
+        <div class="file-card-body">
+            <div class="file-card-top">
+                <div class="file-icon">
+                    {% set ext = file.url.split('.')[-1].lower() if '.' in file.url else '' %}
+                    {% if ext in ['exe','msi','bat','cmd'] %}
+                        <i class="fas fa-desktop" style="color:#00d9ff;"></i>
+                    {% elif ext in ['zip','rar','7z','tar','gz'] %}
+                        <i class="fas fa-file-archive" style="color:#fbbf24;"></i>
+                    {% elif ext in ['dll','so'] %}
+                        <i class="fas fa-cogs" style="color:#a78bfa;"></i>
+                    {% elif ext in ['pdf'] %}
+                        <i class="fas fa-file-pdf" style="color:#f87171;"></i>
+                    {% elif ext in ['mp4','avi','mov','mkv'] %}
+                        <i class="fas fa-film" style="color:#34d399;"></i>
+                    {% else %}
+                        <i class="fas fa-file-download" style="color:#00d9ff;"></i>
+                    {% endif %}
+                </div>
+                <div>
+                    <div class="file-name">{{ file.name }}</div>
+                    <div class="file-meta">
+                        <i class="fas fa-calendar-alt"></i>
+                        {{ file.created_at.strftime('%b %d, %Y') if file.created_at else 'N/A' }}
+                    </div>
+                </div>
+            </div>
+        </div>
+        <div class="file-card-footer">
+            {% if file.get('authed', True) %}
+            <span class="file-badge-auth"><i class="fas fa-lock" style="font-size:9px;"></i> Authenticated</span>
+            {% else %}
+            <span class="file-badge-pub"><i class="fas fa-globe" style="font-size:9px;"></i> Public</span>
+            {% endif %}
+            <a href="{{ file.url }}" target="_blank" rel="noopener" class="btn-download"
+               onclick="animateDownload(this)">
+                <i class="fas fa-download"></i> Download
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+
+<!-- No results message -->
+<div id="no-results" style="text-align:center; padding:60px 20px; color:#555;">
+    <i class="fas fa-search" style="font-size:40px; margin-bottom:12px; opacity:0.3; display:block;"></i>
+    No files match your search.
+</div>
+
+{% else %}
+<div class="files-empty">
+    <div class="files-empty-icon">📂</div>
+    <h3>No files yet</h3>
+    <p>The admin hasn't uploaded any files for this application yet.</p>
+</div>
+{% endif %}
+
+<script>
+function filterFiles(query) {
+    var q = query.toLowerCase().trim();
+    var cards = document.querySelectorAll('.file-card');
+    var visible = 0;
+    cards.forEach(function(c) {
+        var match = !q || c.dataset.name.includes(q);
+        c.style.display = match ? '' : 'none';
+        if (match) visible++;
+    });
+    var nr = document.getElementById('no-results');
+    if (nr) nr.style.display = (visible === 0 && q) ? 'block' : 'none';
+}
+
+function animateDownload(btn) {
+    var orig = btn.innerHTML;
+    btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Starting…';
+    setTimeout(function() {
+        btn.innerHTML = '<i class="fas fa-check"></i> Done!';
+        setTimeout(function() { btn.innerHTML = orig; }, 1800);
+    }, 900);
+}
+</script>
+{% endblock %}
