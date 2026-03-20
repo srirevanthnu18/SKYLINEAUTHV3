@@ -1256,6 +1256,29 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
     margin-left: auto;
 }
 
+/* ── Profile picture avatars in chat ─────────────────────── */
+.contact-avatar-img {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    flex-shrink: 0;
+}
+.chat-avatar-img {
+    width: 38px; height: 38px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    flex-shrink: 0;
+}
+.msg-avatar-img {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    display: block;
+    flex-shrink: 0;
+}
+
 /* ── Responsive ──────────────────────────────────────────── */
 @media (max-width: 768px) {
     .sidebar { transform: translateX(-100%); }
