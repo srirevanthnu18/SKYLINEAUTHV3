@@ -41,33 +41,42 @@ def _role_color(role):
 
 def _role_label(role):
     return {
-        'superadmin': 'Admin',
+        'superadmin': 'Super Admin',
         'admin': 'Admin',
         'reseller': 'Reseller',
         'user': 'User',
     }.get(role, role.title())
 
 
-def _get_contacts(me):
-    role = me['role']
+def _build_contacts(me):
+    """Build full contact list with unread count + last message preview."""
+    members = db.get_all_panel_members(exclude_username=me['username'])
     contacts = []
-
-    all_admins = db.get_admins()
-    for a in all_admins:
-        uname = a['username']
-        if uname == me['username']:
-            continue
+    for m in members:
+        uname = m['username']
+        room = '_'.join(sorted([me['username'], uname]))
+        unread = db.get_unread_count(room, me['username'])
+        last_msg = db.get_last_message(room)
+        preview = ''
+        last_ts = None
+        if last_msg:
+            preview = last_msg.get('message', '')
+            preview = preview[:40] + '…' if len(preview) > 40 else preview
+            last_ts = last_msg.get('timestamp')
         contacts.append({
             'username': uname,
-            'role': a['role'],
-            'display_role': _role_label(a['role']),
-            'color': _role_color(a['role']),
-            'initial': uname[0].upper(),
+            'display_name': m.get('display_name', uname),
+            'role': m['role'],
+            'display_role': m['display_role'],
+            'color': m['color'],
+            'initial': m['initial'],
+            'type': m.get('type', 'admin'),
+            'unread': unread,
+            'preview': preview,
+            'last_ts': last_ts.strftime('%H:%M') if last_ts else '',
+            'has_history': bool(last_msg),
         })
-
-    if role in ('superadmin', 'admin'):
-        pass
-
+    contacts.sort(key=lambda c: (-(c['unread'] > 0), -(c['has_history']), c['display_name'].lower()))
     return contacts
 
 
@@ -75,10 +84,7 @@ def _get_contacts(me):
 @login_required
 def index():
     me = _current_user()
-    contacts = _get_contacts(me)
-    for c in contacts:
-        room = '_'.join(sorted([me['username'], c['username']]))
-        c['unread'] = db.get_unread_count(room, me['username'])
+    contacts = _build_contacts(me)
     total_unread = sum(c['unread'] for c in contacts)
     return render_template(
         'chat.html',
@@ -97,25 +103,48 @@ def index():
 @login_required
 def conversation(target_username):
     me = _current_user()
-    contacts = _get_contacts(me)
+    contacts = _build_contacts(me)
 
     active = None
     for c in contacts:
-        room = '_'.join(sorted([me['username'], c['username']]))
-        c['unread'] = db.get_unread_count(room, me['username'])
         if c['username'] == target_username:
             active = c
+            break
 
     if not active:
         admin = db.db.admins.find_one({'username': target_username})
         if admin:
             active = {
                 'username': admin['username'],
+                'display_name': admin['username'],
                 'role': admin['role'],
                 'display_role': _role_label(admin['role']),
                 'color': _role_color(admin['role']),
                 'initial': admin['username'][0].upper(),
+                'type': 'admin',
+                'unread': 0,
+                'preview': '',
+                'last_ts': '',
             }
+        else:
+            app_user = db.db.app_users.find_one({'$or': [
+                {'username': target_username},
+                {'key': target_username},
+            ]})
+            if app_user:
+                uname = app_user.get('username') or app_user.get('key', '')
+                active = {
+                    'username': uname,
+                    'display_name': uname[:16] + '…' if len(uname) > 16 else uname,
+                    'role': 'user',
+                    'display_role': 'User',
+                    'color': 'user',
+                    'initial': uname[0].upper() if uname else '?',
+                    'type': 'user',
+                    'unread': 0,
+                    'preview': '',
+                    'last_ts': '',
+                }
 
     if not active:
         return redirect(url_for('chat.index'))
@@ -123,7 +152,6 @@ def conversation(target_username):
     room = '_'.join(sorted([me['username'], target_username]))
     db.mark_messages_read(room, me['username'])
     messages = db.get_chat_history(room)
-
     total_unread = sum(c['unread'] for c in contacts)
 
     return render_template(
@@ -143,9 +171,5 @@ def conversation(target_username):
 @login_required
 def api_unread():
     me = _current_user()
-    contacts = _get_contacts(me)
-    total = 0
-    for c in contacts:
-        room = '_'.join(sorted([me['username'], c['username']]))
-        total += db.get_unread_count(room, me['username'])
+    total = db.get_total_unread(me['username'])
     return jsonify({'unread': total})
