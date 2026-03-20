@@ -1,0 +1,402 @@
+{% extends "base.html" %}
+{% block title %}SKYLINE — Announcements{% endblock %}
+{% block page_title %}Announcements{% endblock %}
+
+{% block content %}
+
+<style>
+.ann-page { max-width: 780px; margin: 0 auto; padding-bottom: 40px; }
+
+/* ── Hero ─────────────────────────────────────────── */
+.ann-hero {
+    background: linear-gradient(135deg, #1a0533 0%, #0d0d1a 50%, #0a1628 100%);
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 16px;
+    padding: 32px 28px;
+    margin-bottom: 28px;
+    position: relative; overflow: hidden;
+}
+.ann-hero::before {
+    content: '';
+    position: absolute; top: -40px; right: -40px;
+    width: 200px; height: 200px;
+    background: radial-gradient(circle, rgba(167,139,250,0.15) 0%, transparent 70%);
+    border-radius: 50%;
+}
+.ann-hero-icon {
+    width: 52px; height: 52px;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    border-radius: 14px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 22px; color: #fff;
+    margin-bottom: 14px;
+    box-shadow: 0 4px 20px rgba(124,58,237,0.4);
+}
+.ann-hero h2 { font-size: 22px; font-weight: 800; color: #fff; margin: 0 0 6px; letter-spacing: -0.3px; }
+.ann-hero p  { color: #a1a1aa; font-size: 13px; margin: 0; }
+.ann-hero-stats { display: flex; gap: 14px; margin-top: 18px; flex-wrap: wrap; }
+.ann-stat {
+    display: flex; align-items: center; gap: 7px;
+    font-size: 12px; color: #a78bfa;
+    background: rgba(167,139,250,0.08);
+    border: 1px solid rgba(167,139,250,0.15);
+    border-radius: 8px; padding: 5px 11px;
+}
+
+/* ── Tag definitions ──────────────────────────────── */
+:root {
+    --tag-announcement: #a78bfa;
+    --tag-announcement-bg: rgba(167,139,250,0.10);
+    --tag-announcement-border: rgba(167,139,250,0.25);
+    --tag-patch: #34d399;
+    --tag-patch-bg: rgba(52,211,153,0.10);
+    --tag-patch-border: rgba(52,211,153,0.25);
+    --tag-notice: #f59e0b;
+    --tag-notice-bg: rgba(245,158,11,0.10);
+    --tag-notice-border: rgba(245,158,11,0.25);
+    --tag-update: #60a5fa;
+    --tag-update-bg: rgba(96,165,250,0.10);
+    --tag-update-border: rgba(96,165,250,0.25);
+    --tag-general: #94a3b8;
+    --tag-general-bg: rgba(148,163,184,0.10);
+    --tag-general-border: rgba(148,163,184,0.25);
+}
+
+/* ── Compose ──────────────────────────────────────── */
+.ann-compose {
+    background: #0d0d0d;
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 16px; padding: 24px;
+    margin-bottom: 28px; transition: border-color 0.2s;
+}
+.ann-compose:hover { border-color: rgba(167,139,250,0.4); }
+.ann-compose-header {
+    display: flex; align-items: center; gap: 10px;
+    margin-bottom: 18px; padding-bottom: 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+.ann-compose-icon {
+    width: 34px; height: 34px;
+    background: linear-gradient(135deg, rgba(124,58,237,.15), rgba(167,139,250,.15));
+    border: 1px solid rgba(167,139,250,0.3);
+    border-radius: 8px;
+    display: flex; align-items: center; justify-content: center;
+    color: #a78bfa; font-size: 14px; flex-shrink: 0;
+}
+.ann-compose-header-text h4 { font-size: 14px; font-weight: 700; color: #fff; margin: 0 0 2px; }
+.ann-compose-header-text p  { font-size: 11px; color: #71717a; margin: 0; }
+
+.ann-field { margin-bottom: 14px; }
+.ann-label {
+    display: block; font-size: 11px; font-weight: 600;
+    color: #a78bfa; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 6px;
+}
+.ann-input {
+    width: 100%; padding: 10px 14px;
+    background: #111; border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 10px; color: #fff; font-size: 14px;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    box-sizing: border-box; font-family: inherit;
+}
+.ann-input:focus { outline: none; border-color: rgba(167,139,250,0.5); box-shadow: 0 0 0 3px rgba(167,139,250,0.08); }
+.ann-input::placeholder { color: #52525b; }
+textarea.ann-input { resize: vertical; min-height: 100px; line-height: 1.6; }
+
+/* Tag picker */
+.ann-tag-grid {
+    display: flex; flex-wrap: wrap; gap: 8px; margin-top: 2px;
+}
+.ann-tag-option { display: none; }
+.ann-tag-option + label {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 7px 14px; border-radius: 20px; font-size: 12px; font-weight: 600;
+    cursor: pointer; transition: all 0.15s;
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #a1a1aa; background: rgba(255,255,255,0.04);
+    user-select: none;
+}
+.ann-tag-option + label:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+.ann-tag-option:checked + label { box-shadow: 0 0 0 1px currentColor; }
+
+.ann-tag-option[value="announcement"]:checked + label { color: var(--tag-announcement); background: var(--tag-announcement-bg); border-color: var(--tag-announcement-border); }
+.ann-tag-option[value="patch"]:checked + label       { color: var(--tag-patch);        background: var(--tag-patch-bg);        border-color: var(--tag-patch-border); }
+.ann-tag-option[value="notice"]:checked + label      { color: var(--tag-notice);       background: var(--tag-notice-bg);       border-color: var(--tag-notice-border); }
+.ann-tag-option[value="update"]:checked + label      { color: var(--tag-update);       background: var(--tag-update-bg);       border-color: var(--tag-update-border); }
+.ann-tag-option[value="general"]:checked + label     { color: var(--tag-general);      background: var(--tag-general-bg);      border-color: var(--tag-general-border); }
+
+.ann-compose-footer {
+    display: flex; align-items: center;
+    justify-content: space-between; flex-wrap: wrap; gap: 12px;
+    margin-top: 16px; padding-top: 16px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.ann-pin-toggle {
+    display: flex; align-items: center; gap: 8px;
+    cursor: pointer; font-size: 13px; color: #a1a1aa; user-select: none;
+}
+.ann-pin-toggle input[type=checkbox] { width: 16px; height: 16px; accent-color: #a78bfa; cursor: pointer; }
+.ann-pin-toggle:hover { color: #a78bfa; }
+.ann-compose-actions { display: flex; gap: 10px; }
+
+.ann-btn-cancel {
+    padding: 9px 18px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    cursor: pointer; border: 1px solid rgba(255,255,255,0.1);
+    background: transparent; color: #a1a1aa;
+    text-decoration: none; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;
+}
+.ann-btn-cancel:hover { border-color: rgba(255,255,255,0.2); color: #fff; }
+
+.ann-btn-post {
+    padding: 9px 20px; border-radius: 9px; font-size: 13px; font-weight: 700;
+    cursor: pointer; border: none;
+    background: linear-gradient(135deg, #7c3aed, #a78bfa);
+    color: #fff; display: inline-flex; align-items: center; gap: 7px;
+    transition: all 0.2s; box-shadow: 0 2px 12px rgba(124,58,237,0.35);
+}
+.ann-btn-post:hover { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(124,58,237,0.5); }
+
+/* ── Feed Cards ───────────────────────────────────── */
+.ann-feed { display: flex; flex-direction: column; gap: 14px; }
+
+.ann-empty {
+    text-align: center; padding: 60px 24px;
+    background: #0d0d0d;
+    border: 1px dashed rgba(167,139,250,0.15); border-radius: 16px;
+}
+.ann-empty-icon { font-size: 44px; color: rgba(167,139,250,0.2); margin-bottom: 14px; display: block; }
+.ann-empty p { color: #52525b; font-size: 14px; margin: 0; }
+
+.ann-card {
+    background: #0d0d0d;
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 16px; padding: 20px 22px;
+    position: relative; overflow: hidden;
+    transition: border-color 0.2s, transform 0.2s;
+}
+.ann-card:hover { border-color: rgba(167,139,250,0.2); transform: translateY(-1px); }
+.ann-card.pinned {
+    border-color: rgba(167,139,250,0.3);
+    background: linear-gradient(135deg, #0d0d0d 0%, #120820 100%);
+}
+.ann-card.pinned::before {
+    content: '';
+    position: absolute; top: 0; left: 0;
+    width: 3px; height: 100%;
+    background: linear-gradient(180deg, #7c3aed, #a78bfa, #7c3aed);
+    border-radius: 3px 0 0 3px;
+}
+
+.ann-card-header {
+    display: flex; align-items: flex-start;
+    justify-content: space-between; gap: 12px;
+    margin-bottom: 14px;
+}
+.ann-card-title-col { flex: 1; min-width: 0; }
+.ann-card-title {
+    font-size: 15px; font-weight: 700; color: #fff;
+    margin: 0 0 8px; line-height: 1.3; word-break: break-word;
+}
+.ann-card-badges { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+
+/* Tag badge on card */
+.ann-tag-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600;
+    border-radius: 20px; padding: 3px 10px;
+    white-space: nowrap;
+}
+.ann-tag-badge.tag-announcement { color: var(--tag-announcement); background: var(--tag-announcement-bg); border: 1px solid var(--tag-announcement-border); }
+.ann-tag-badge.tag-patch        { color: var(--tag-patch);        background: var(--tag-patch-bg);        border: 1px solid var(--tag-patch-border); }
+.ann-tag-badge.tag-notice       { color: var(--tag-notice);       background: var(--tag-notice-bg);       border: 1px solid var(--tag-notice-border); }
+.ann-tag-badge.tag-update       { color: var(--tag-update);       background: var(--tag-update-bg);       border: 1px solid var(--tag-update-border); }
+.ann-tag-badge.tag-general      { color: var(--tag-general);      background: var(--tag-general-bg);      border: 1px solid var(--tag-general-border); }
+
+.ann-badge-pinned {
+    display: inline-flex; align-items: center; gap: 5px;
+    font-size: 11px; font-weight: 600; color: #a78bfa;
+    background: rgba(167,139,250,0.1);
+    border: 1px solid rgba(167,139,250,0.2);
+    border-radius: 20px; padding: 3px 10px;
+    white-space: nowrap; flex-shrink: 0;
+}
+
+.ann-card-meta { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 6px; }
+.ann-meta-chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px; color: #71717a; }
+.ann-meta-chip i { font-size: 10px; }
+.ann-edited-tag {
+    font-size: 10px; color: #52525b; font-style: italic;
+    background: rgba(255,255,255,0.04); border-radius: 4px; padding: 1px 6px;
+}
+
+.ann-card-body {
+    font-size: 14px; color: #a1a1aa; line-height: 1.7;
+    white-space: pre-wrap; word-break: break-word;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    padding-top: 14px; margin-top: 2px;
+}
+
+.ann-card-footer {
+    display: flex; align-items: center; justify-content: flex-end; gap: 8px;
+    margin-top: 16px; padding-top: 14px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+}
+.ann-action-btn {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 6px 13px; border-radius: 8px; font-size: 12px; font-weight: 600;
+    cursor: pointer; text-decoration: none; transition: all 0.2s; border: 1px solid transparent;
+}
+.ann-action-edit  { color: #a78bfa; background: rgba(167,139,250,0.08); border-color: rgba(167,139,250,0.15); }
+.ann-action-edit:hover  { background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.3); color: #c4b5fd; }
+.ann-action-delete { color: #f87171; background: rgba(248,113,113,0.08); border-color: rgba(248,113,113,0.15); }
+.ann-action-delete:hover { background: rgba(248,113,113,0.15); border-color: rgba(248,113,113,0.3); color: #fca5a5; }
+.ann-action-delete button { all: unset; display: inline-flex; align-items: center; gap: 6px; cursor: pointer; color: inherit; font-size: inherit; font-weight: inherit; }
+</style>
+
+{% set TAG_META = {
+    'announcement': {'icon': 'fa-bullhorn',   'label': 'Announcement'},
+    'patch':        {'icon': 'fa-wrench',      'label': 'Patch Notice'},
+    'notice':       {'icon': 'fa-exclamation-circle', 'label': 'Notice'},
+    'update':       {'icon': 'fa-arrow-up-right-dots', 'label': 'Update Log'},
+    'general':      {'icon': 'fa-comment',     'label': 'General'}
+} %}
+
+<div class="ann-page">
+
+    <!-- Hero -->
+    <div class="ann-hero">
+        <div class="ann-hero-icon"><i class="fas fa-bullhorn"></i></div>
+        <h2>Announcements</h2>
+        <p>Stay up to date with the latest updates, changes, and important notices.</p>
+        <div class="ann-hero-stats">
+            <span class="ann-stat"><i class="fas fa-layer-group"></i> {{ announcements | length }} total</span>
+            {% set pinned_count = announcements | selectattr('pinned') | list | length %}
+            {% if pinned_count %}
+            <span class="ann-stat"><i class="fas fa-thumbtack"></i> {{ pinned_count }} pinned</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <!-- Compose / Edit (admins only) -->
+    {% if session.get('role') in ['superadmin', 'admin'] %}
+    {% set cur_tag = edit_ann.tag if edit_ann and edit_ann.tag else 'announcement' %}
+    <div class="ann-compose">
+        <div class="ann-compose-header">
+            <div class="ann-compose-icon">
+                <i class="fas fa-{% if edit_ann %}pen{% else %}plus{% endif %}"></i>
+            </div>
+            <div class="ann-compose-header-text">
+                <h4>{% if edit_ann %}Edit Announcement{% else %}New Announcement{% endif %}</h4>
+                <p>{% if edit_ann %}Update the details below and save.{% else %}Post a message visible to all admins and resellers.{% endif %}</p>
+            </div>
+        </div>
+
+        <form method="POST"
+              action="{% if edit_ann %}{{ url_for('announcements.edit', ann_id=edit_ann._id|string) }}{% else %}{{ url_for('announcements.create') }}{% endif %}">
+
+            <div class="ann-field">
+                <label class="ann-label">Title</label>
+                <input type="text" name="title" class="ann-input"
+                       value="{{ edit_ann.title if edit_ann else '' }}"
+                       placeholder="Give your announcement a title..." required maxlength="200">
+            </div>
+
+            <div class="ann-field">
+                <label class="ann-label">Tag</label>
+                <div class="ann-tag-grid">
+                    {% for tag_val, tag_info in TAG_META.items() %}
+                    <input class="ann-tag-option" type="radio" name="tag" id="tag_{{ tag_val }}"
+                           value="{{ tag_val }}" {% if cur_tag == tag_val %}checked{% endif %}>
+                    <label for="tag_{{ tag_val }}">
+                        <i class="fas {{ tag_info.icon }}"></i> {{ tag_info.label }}
+                    </label>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="ann-field">
+                <label class="ann-label">Message</label>
+                <textarea name="message" class="ann-input" rows="5"
+                          placeholder="Write your announcement here..." required maxlength="5000">{{ edit_ann.message if edit_ann else '' }}</textarea>
+            </div>
+
+            <div class="ann-compose-footer">
+                <label class="ann-pin-toggle">
+                    <input type="checkbox" name="pinned" {% if edit_ann and edit_ann.pinned %}checked{% endif %}>
+                    <i class="fas fa-thumbtack" style="color:#a78bfa;"></i> Pin to top
+                </label>
+                <div class="ann-compose-actions">
+                    {% if edit_ann %}
+                    <a href="{{ url_for('announcements.index') }}" class="ann-btn-cancel">
+                        <i class="fas fa-times"></i> Cancel
+                    </a>
+                    {% endif %}
+                    <button type="submit" class="ann-btn-post">
+                        <i class="fas fa-{% if edit_ann %}save{% else %}paper-plane{% endif %}"></i>
+                        {% if edit_ann %}Save Changes{% else %}Post{% endif %}
+                    </button>
+                </div>
+            </div>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- Feed -->
+    <div class="ann-feed">
+        {% if not announcements %}
+        <div class="ann-empty">
+            <i class="fas fa-bullhorn ann-empty-icon"></i>
+            <p>No announcements yet. Check back later.</p>
+        </div>
+        {% endif %}
+
+        {% for ann in announcements %}
+        {% set tag = ann.tag if ann.tag else 'announcement' %}
+        {% set tm = TAG_META.get(tag, TAG_META['announcement']) %}
+        <div class="ann-card {% if ann.pinned %}pinned{% endif %}">
+
+            <div class="ann-card-header">
+                <div class="ann-card-title-col">
+                    <h3 class="ann-card-title">{{ ann.title }}</h3>
+                    <div class="ann-card-badges">
+                        <span class="ann-tag-badge tag-{{ tag }}">
+                            <i class="fas {{ tm.icon }}"></i> {{ tm.label }}
+                        </span>
+                        {% if ann.pinned %}
+                        <span class="ann-badge-pinned"><i class="fas fa-thumbtack"></i> Pinned</span>
+                        {% endif %}
+                    </div>
+                    <div class="ann-card-meta">
+                        <span class="ann-meta-chip"><i class="fas fa-user"></i> {{ ann.created_by }}</span>
+                        <span class="ann-meta-chip">
+                            <i class="fas fa-clock"></i>
+                            {{ ann.created_at.strftime('%b %d, %Y · %H:%M UTC') if ann.created_at else 'Unknown date' }}
+                        </span>
+                        {% if ann.updated_at and ann.updated_at != ann.created_at %}
+                        <span class="ann-edited-tag">edited {{ ann.updated_at.strftime('%b %d') }}</span>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="ann-card-body">{{ ann.message }}</div>
+
+            {% if session.get('role') in ['superadmin', 'admin'] %}
+            <div class="ann-card-footer">
+                <a href="{{ url_for('announcements.edit', ann_id=ann._id|string) }}" class="ann-action-btn ann-action-edit">
+                    <i class="fas fa-pen"></i> Edit
+                </a>
+                <form method="POST" action="{{ url_for('announcements.delete', ann_id=ann._id|string) }}"
+                      onsubmit="return confirm('Delete this announcement?');" style="display:inline;">
+                    <span class="ann-action-btn ann-action-delete">
+                        <button><i class="fas fa-trash"></i> Delete</button>
+                    </span>
+                </form>
+            </div>
+            {% endif %}
+
+        </div>
+        {% endfor %}
+    </div>
+
+</div>
+{% endblock %}
