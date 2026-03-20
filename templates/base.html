@@ -27,6 +27,13 @@
                 <i class="fas fa-chart-pie"></i><span>Overview</span>
             </a>
 
+            {% if session.get('role') == 'user' %}
+            <a href="{{ url_for('user_files.index') }}"
+               class="nav-item {% if request.endpoint == 'user_files.index' %}active{% endif %}">
+                <i class="fas fa-cloud-download-alt"></i><span>Downloads</span>
+            </a>
+            {% endif %}
+
             {% if session.get('role') in ['superadmin', 'admin'] %}
             <div class="nav-section-label">Management</div>
             <a href="{{ url_for('apps.index') }}"
