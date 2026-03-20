@@ -34,6 +34,18 @@
             </a>
             {% endif %}
 
+            <a href="{{ url_for('chat.index') }}"
+               class="nav-item {% if request.endpoint and 'chat' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-comments"></i>
+                <span>Messages</span>
+                <span id="chat-sidebar-badge" style="display:none;
+                    background:linear-gradient(135deg,#00d9ff,#7c3aed);
+                    color:#fff; font-size:10px; font-weight:800; min-width:17px; height:17px;
+                    border-radius:999px; align-items:center; justify-content:center;
+                    padding:0 4px; margin-left:auto;">
+                </span>
+            </a>
+
             {% if session.get('role') in ['superadmin', 'admin'] %}
             <div class="nav-section-label">Management</div>
             <a href="{{ url_for('apps.index') }}"
@@ -139,6 +151,43 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+
+{% if session.get('admin_id') or session.get('user_id') %}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+<script>
+(function(){
+    var badge = document.getElementById('chat-sidebar-badge');
+    if (!badge) return;
+    function sync(n) {
+        if (n > 0) {
+            badge.textContent = n > 99 ? '99+' : n;
+            badge.style.display = 'flex';
+        } else {
+            badge.textContent = '';
+            badge.style.display = 'none';
+        }
+    }
+    function load() {
+        fetch('/chat/api/unread')
+            .then(function(r){ return r.json(); })
+            .then(function(d){ sync(d.unread || 0); })
+            .catch(function(){});
+    }
+    load();
+    setInterval(load, 20000);
+
+    /* Live bump via socket when on other pages */
+    try {
+        var sock = io({ transports: ['websocket','polling'] });
+        sock.on('message_notification', function(data) {
+            var cur = parseInt(badge.textContent || '0') + 1;
+            sync(cur);
+        });
+    } catch(e) {}
+})();
+</script>
+{% endif %}
+
 {% block scripts %}{% endblock %}
 </body>
 </html>
