@@ -6,60 +6,404 @@
 <script>
 window.CHAT_ME = {
     username: {{ me.username | tojson }},
-    role: {{ me.role | tojson }}
+    role:     {{ me.role    | tojson }}
 };
-window.CHAT_ROOM = {{ room_id | tojson if active_contact else 'null' }};
+window.CHAT_ROOM    = {{ room_id | tojson if active_contact else 'null' }};
 window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else 'null' }};
 </script>
 
+<style>
+/* ── Shell ───────────────────────────────────────────────────── */
+.chat-shell {
+    display: flex;
+    height: calc(100vh - 130px);
+    min-height: 500px;
+    border-radius: 20px;
+    overflow: hidden;
+    border: 1px solid rgba(255,255,255,0.06);
+    box-shadow: 0 24px 80px rgba(0,0,0,0.5);
+}
+
+/* ── Left Panel ──────────────────────────────────────────────── */
+.chat-panel {
+    width: 300px;
+    flex-shrink: 0;
+    display: flex;
+    flex-direction: column;
+    background: linear-gradient(180deg, rgba(12,12,20,0.98) 0%, rgba(14,14,24,0.98) 100%);
+    border-right: 1px solid rgba(255,255,255,0.05);
+}
+
+.chat-panel-head {
+    padding: 18px 16px 14px;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    background: rgba(0,0,0,0.2);
+}
+.chat-panel-title {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 12px;
+}
+.chat-panel-title span {
+    font-size: 15px; font-weight: 800; color: #e2e8f0;
+    display: flex; align-items: center; gap: 8px;
+}
+.chat-panel-title i { color: #00d9ff; }
+.chat-count-pill {
+    background: linear-gradient(135deg, #00d9ff22, #7c3aed22);
+    border: 1px solid rgba(0,217,255,0.2);
+    color: #00d9ff; font-size: 11px; font-weight: 700;
+    padding: 2px 9px; border-radius: 999px;
+}
+
+/* Search */
+.chat-search-wrap { position: relative; }
+.chat-search-wrap i {
+    position: absolute; left: 12px; top: 50%; transform: translateY(-50%);
+    color: #444; font-size: 13px; pointer-events: none;
+}
+.chat-search {
+    width: 100%; padding: 9px 12px 9px 34px;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(255,255,255,0.07);
+    border-radius: 10px; color: #ccc; font-size: 13px;
+    outline: none; transition: border-color 0.2s;
+    box-sizing: border-box;
+}
+.chat-search:focus { border-color: rgba(0,217,255,0.4); }
+.chat-search::placeholder { color: #444; }
+
+/* Contact List */
+.chat-contacts-list {
+    flex: 1; overflow-y: auto; padding: 6px 0;
+}
+.chat-contacts-list::-webkit-scrollbar { width: 3px; }
+.chat-contacts-list::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.08); border-radius: 99px; }
+
+.contact-item {
+    display: flex; align-items: center; gap: 12px;
+    padding: 11px 16px; cursor: pointer; text-decoration: none;
+    transition: background 0.15s;
+    position: relative;
+}
+.contact-item:hover  { background: rgba(255,255,255,0.04); }
+.contact-item.active { background: rgba(0,217,255,0.07); border-right: 2px solid #00d9ff; }
+
+.contact-avatar-wrap { position: relative; flex-shrink: 0; }
+.contact-avatar {
+    width: 40px; height: 40px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 15px; font-weight: 800;
+}
+.contact-dot {
+    position: absolute; bottom: 1px; right: 1px;
+    width: 10px; height: 10px; border-radius: 50%;
+    border: 2px solid rgba(12,12,20,0.98);
+    background: #333; transition: background 0.3s;
+}
+.contact-dot.online  { background: #22c55e; }
+.contact-dot.offline { background: #444; }
+
+.contact-body { flex: 1; min-width: 0; }
+.contact-top { display: flex; align-items: center; justify-content: space-between; margin-bottom: 3px; }
+.contact-name {
+    font-size: 13px; font-weight: 700; color: #ddd;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 130px;
+}
+.contact-time { font-size: 10px; color: #444; flex-shrink: 0; }
+.contact-bottom { display: flex; align-items: center; justify-content: space-between; gap: 4px; }
+.contact-preview {
+    font-size: 12px; color: #555;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+    flex: 1; min-width: 0;
+}
+.contact-unread {
+    background: linear-gradient(135deg, #00d9ff, #7c3aed);
+    color: #fff; font-size: 10px; font-weight: 800;
+    min-width: 18px; height: 18px; border-radius: 999px;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 5px; flex-shrink: 0;
+}
+
+.role-tag {
+    font-size: 9px; font-weight: 700; padding: 2px 6px; border-radius: 4px;
+    text-transform: uppercase; letter-spacing: 0.3px; flex-shrink: 0;
+}
+.role-tag.role-admin    { background: rgba(220,38,38,0.18); color: #f87171; border: 1px solid rgba(220,38,38,0.3); }
+.role-tag.role-reseller { background: rgba(124,58,237,0.18); color: #c4b5fd; border: 1px solid rgba(124,58,237,0.3); }
+.role-tag.role-user     { background: rgba(37,99,235,0.18);  color: #93c5fd; border: 1px solid rgba(37,99,235,0.3); }
+
+.no-contacts {
+    text-align: center; padding: 40px 20px; color: #444;
+}
+.no-contacts i { font-size: 36px; margin-bottom: 10px; display: block; opacity: 0.3; }
+.no-contacts p { font-size: 13px; }
+
+/* ── Right Panel ─────────────────────────────────────────────── */
+.chat-main {
+    flex: 1; display: flex; flex-direction: column; min-width: 0;
+    background: linear-gradient(180deg, rgba(10,10,18,0.99), rgba(13,13,22,0.99));
+}
+
+/* Top bar */
+.chat-topbar {
+    padding: 14px 20px;
+    display: flex; align-items: center; justify-content: space-between;
+    background: rgba(0,0,0,0.25);
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    flex-shrink: 0;
+}
+.chat-topbar-left { display: flex; align-items: center; gap: 12px; }
+.chat-avatar-lg {
+    width: 42px; height: 42px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 17px; font-weight: 800; flex-shrink: 0;
+}
+.chat-topbar-name { font-size: 15px; font-weight: 700; color: #e2e8f0; }
+.chat-status-online  { font-size: 12px; color: #22c55e; display: flex; align-items: center; gap: 4px; }
+.chat-status-offline { font-size: 12px; color: #555; display: flex; align-items: center; gap: 4px; }
+.chat-topbar-right { display: flex; align-items: center; gap: 10px; }
+.chat-secure-badge {
+    font-size: 11px; color: #22c55e;
+    background: rgba(34,197,94,0.08); border: 1px solid rgba(34,197,94,0.2);
+    padding: 4px 10px; border-radius: 999px;
+    display: flex; align-items: center; gap: 5px;
+}
+
+/* Messages area */
+.chat-messages-area {
+    flex: 1; overflow-y: auto; padding: 24px 20px;
+    display: flex; flex-direction: column; gap: 4px;
+}
+.chat-messages-area::-webkit-scrollbar { width: 4px; }
+.chat-messages-area::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.07); border-radius: 99px; }
+
+.chat-welcome {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; gap: 12px;
+    color: #444; padding: 40px 20px;
+}
+.chat-welcome-icon {
+    width: 80px; height: 80px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 36px;
+    background: radial-gradient(circle, rgba(0,217,255,0.1), transparent);
+    border: 1px solid rgba(0,217,255,0.15);
+    animation: pulse-glow 3s ease-in-out infinite;
+}
+@keyframes pulse-glow {
+    0%,100% { box-shadow: 0 0 20px rgba(0,217,255,0.1); }
+    50%      { box-shadow: 0 0 40px rgba(0,217,255,0.25); }
+}
+.chat-welcome i { color: #00d9ff; }
+.chat-welcome h3 { font-size: 18px; font-weight: 700; color: #777; margin: 0; }
+.chat-welcome p  { font-size: 13px; color: #555; margin: 0; }
+
+.chat-no-msgs {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    color: #444; text-align: center;
+}
+.chat-no-msgs i { font-size: 40px; opacity: 0.15; margin-bottom: 12px; }
+.chat-no-msgs p { font-size: 14px; }
+.chat-no-msgs strong { color: #7c3aed; }
+
+/* Message rows */
+.msg-wrap {
+    display: flex; align-items: flex-end; gap: 8px;
+    margin-bottom: 6px; animation: msg-in 0.2s ease both;
+}
+@keyframes msg-in { from { opacity:0; transform: translateY(6px); } to { opacity:1; transform: none; } }
+.msg-wrap.mine { flex-direction: row-reverse; }
+
+.msg-avatar {
+    width: 32px; height: 32px; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 13px; font-weight: 800; flex-shrink: 0;
+}
+.msg-body { display: flex; flex-direction: column; max-width: 62%; }
+.mine .msg-body { align-items: flex-end; }
+
+.msg-meta {
+    display: flex; align-items: center; gap: 6px; margin-bottom: 4px;
+}
+.msg-name { font-size: 12px; font-weight: 600; color: #888; }
+
+.msg-bubble {
+    padding: 10px 14px; border-radius: 16px;
+    font-size: 14px; line-height: 1.5; word-break: break-word;
+    position: relative;
+}
+.theirs .msg-bubble {
+    background: rgba(255,255,255,0.06);
+    border: 1px solid rgba(255,255,255,0.08);
+    color: #e2e8f0; border-bottom-left-radius: 4px;
+}
+.mine .msg-bubble {
+    background: linear-gradient(135deg, rgba(0,217,255,0.2), rgba(124,58,237,0.25));
+    border: 1px solid rgba(0,217,255,0.2);
+    color: #f0f9ff; border-bottom-right-radius: 4px;
+}
+.msg-time {
+    font-size: 10px; color: #444; margin-top: 4px;
+    padding: 0 4px;
+}
+
+/* Date separator */
+.date-separator {
+    text-align: center; margin: 16px 0;
+    display: flex; align-items: center; gap: 10px; color: #333; font-size: 11px;
+}
+.date-separator::before, .date-separator::after {
+    content: ''; flex: 1; height: 1px; background: rgba(255,255,255,0.05);
+}
+
+/* Typing */
+.typing-bubble {
+    display: flex; align-items: center; gap: 6px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 10px 14px; border-radius: 16px; border-bottom-left-radius: 4px;
+    color: #888; font-size: 13px;
+}
+.typing-name { color: #00d9ff; font-weight: 600; }
+.typing-dots { display: flex; gap: 3px; align-items: center; }
+.typing-dots span {
+    width: 5px; height: 5px; border-radius: 50%; background: #00d9ff;
+    animation: typingBounce 1.2s infinite;
+}
+.typing-dots span:nth-child(2) { animation-delay: 0.2s; }
+.typing-dots span:nth-child(3) { animation-delay: 0.4s; }
+@keyframes typingBounce {
+    0%,60%,100% { transform: none; opacity: 0.4; }
+    30% { transform: translateY(-5px); opacity: 1; }
+}
+
+/* Input bar */
+.chat-input-bar {
+    padding: 12px 16px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    display: flex; align-items: center; gap: 10px;
+    background: rgba(0,0,0,0.2); flex-shrink: 0;
+}
+.chat-input {
+    flex: 1; padding: 12px 16px;
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.08);
+    border-radius: 12px; color: #e2e8f0; font-size: 14px;
+    outline: none; transition: border-color 0.2s;
+}
+.chat-input:focus { border-color: rgba(0,217,255,0.4); }
+.chat-input::placeholder { color: #444; }
+.chat-send-btn {
+    width: 44px; height: 44px; border-radius: 12px; border: none; cursor: pointer;
+    background: linear-gradient(135deg, #00d9ff, #7c3aed);
+    color: #fff; font-size: 16px;
+    display: flex; align-items: center; justify-content: center;
+    transition: transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 16px rgba(0,217,255,0.25);
+    flex-shrink: 0;
+}
+.chat-send-btn:hover { transform: scale(1.07); box-shadow: 0 6px 24px rgba(0,217,255,0.4); }
+.chat-send-btn:active { transform: scale(0.94); }
+
+/* Feature badges */
+.chat-feature-strip {
+    display: flex; gap: 8px; flex-wrap: wrap;
+    padding: 8px 16px 10px;
+    background: rgba(0,0,0,0.1);
+    border-top: 1px solid rgba(255,255,255,0.03);
+    flex-shrink: 0;
+}
+.feature-badge {
+    font-size: 10px; font-weight: 600; padding: 3px 10px;
+    border-radius: 999px; display: flex; align-items: center; gap: 5px;
+}
+.feature-badge.cyan   { background: rgba(0,217,255,0.08); color: #00d9ff; border: 1px solid rgba(0,217,255,0.2); }
+.feature-badge.green  { background: rgba(34,197,94,0.08);  color: #4ade80; border: 1px solid rgba(34,197,94,0.2); }
+.feature-badge.purple { background: rgba(124,58,237,0.08); color: #a78bfa; border: 1px solid rgba(124,58,237,0.2); }
+.feature-badge.amber  { background: rgba(251,191,36,0.08); color: #fbbf24; border: 1px solid rgba(251,191,36,0.2); }
+
+/* Mobile */
+@media (max-width: 680px) {
+    .chat-panel { width: 240px; }
+    .contact-preview { display: none; }
+}
+@media (max-width: 480px) {
+    .chat-panel { display: none; }
+    .chat-shell { border-radius: 12px; }
+}
+</style>
+
 <div class="chat-shell">
 
-    <!-- Contact List -->
-    <aside class="chat-sidebar">
-        <div class="chat-sidebar-head">
-            <span class="chat-sidebar-title">
-                <i class="fas fa-comments"></i> Messages
-            </span>
-            <span class="chat-total-badge">{{ contacts | length }}</span>
+    <!-- ── Left Panel ─────────────────────────────── -->
+    <div class="chat-panel">
+        <div class="chat-panel-head">
+            <div class="chat-panel-title">
+                <span><i class="fas fa-comments"></i> Messages</span>
+                <span class="chat-count-pill">{{ contacts|length }}</span>
+            </div>
+            <div class="chat-search-wrap">
+                <i class="fas fa-search"></i>
+                <input class="chat-search" id="contact-search" type="text"
+                       placeholder="Search contacts…" oninput="filterContacts(this.value)" autocomplete="off">
+            </div>
         </div>
-        <div class="chat-contacts">
+
+        <div class="chat-contacts-list" id="contacts-list">
             {% for c in contacts %}
             <a href="{{ url_for('chat.conversation', target_username=c.username) }}"
                class="contact-item {% if active_contact and active_contact.username == c.username %}active{% endif %}"
-               data-user="{{ c.username }}">
+               data-user="{{ c.username }}"
+               data-name="{{ c.display_name | lower }}">
+
                 <div class="contact-avatar-wrap">
                     <div class="contact-avatar role-{{ c.color }}">{{ c.initial }}</div>
-                    <span class="contact-dot online-dot" data-user="{{ c.username }}"></span>
+                    <span class="contact-dot" data-user="{{ c.username }}"></span>
                 </div>
-                <div class="contact-info">
-                    <span class="contact-name">{{ c.username }}</span>
-                    <span class="role-tag role-{{ c.color }}">{{ c.display_role }}</span>
+
+                <div class="contact-body">
+                    <div class="contact-top">
+                        <span class="contact-name">{{ c.display_name }}</span>
+                        <span class="contact-time">{{ c.last_ts }}</span>
+                    </div>
+                    <div class="contact-bottom">
+                        <span class="contact-preview">
+                            {% if c.preview %}{{ c.preview }}{% else %}<span style="color:#333;">Start a conversation</span>{% endif %}
+                        </span>
+                        <div style="display:flex; align-items:center; gap:5px; flex-shrink:0;">
+                            <span class="role-tag role-{{ c.color }}">{{ c.display_role }}</span>
+                            {% if c.unread > 0 %}
+                            <span class="contact-unread" id="unread-{{ c.username }}">{{ c.unread }}</span>
+                            {% else %}
+                            <span class="contact-unread" id="unread-{{ c.username }}" style="display:none;"></span>
+                            {% endif %}
+                        </div>
+                    </div>
                 </div>
-                {% if c.unread > 0 %}
-                <span class="contact-unread">{{ c.unread }}</span>
-                {% endif %}
             </a>
             {% else %}
-            <div class="chat-empty-contacts">
+            <div class="no-contacts">
                 <i class="fas fa-user-slash"></i>
-                <p>No contacts yet</p>
+                <p>No other users yet</p>
             </div>
             {% endfor %}
         </div>
-    </aside>
+    </div>
 
-    <!-- Chat Window -->
+    <!-- ── Right Panel ────────────────────────────── -->
     <div class="chat-main">
         {% if active_contact %}
+
         <!-- Top Bar -->
         <div class="chat-topbar">
             <div class="chat-topbar-left">
-                <div class="chat-avatar-lg role-{{ active_contact.color }}">
-                    {{ active_contact.initial }}
-                </div>
-                <div class="chat-topbar-info">
-                    <span class="chat-topbar-name">{{ active_contact.username }}</span>
-                    <span id="chat-status-text" class="chat-status-online">Online</span>
+                <div class="chat-avatar-lg role-{{ active_contact.color }}">{{ active_contact.initial }}</div>
+                <div>
+                    <div class="chat-topbar-name">{{ active_contact.display_name }}</div>
+                    <div id="chat-status-text" class="chat-status-offline">
+                        <i class="fas fa-circle" style="font-size:7px;"></i> Checking…
+                    </div>
                 </div>
             </div>
             <div class="chat-topbar-right">
@@ -73,7 +417,7 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
             {% if not messages %}
             <div class="chat-no-msgs">
                 <i class="fas fa-comments"></i>
-                <p>Start a conversation with <strong>{{ active_contact.username }}</strong></p>
+                <p>Say hello to <strong>{{ active_contact.display_name }}</strong> 👋</p>
             </div>
             {% endif %}
 
@@ -86,7 +430,9 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
                     {% if not is_mine %}
                     <div class="msg-meta">
                         <span class="msg-name">{{ msg.from_username }}</span>
-                        <span class="role-tag role-{{ rc }}">{{ msg.from_role | replace('superadmin','Admin') | replace('admin','Admin') | replace('reseller','Reseller') | replace('user','User') }}</span>
+                        <span class="role-tag role-{{ rc }}">
+                            {{ msg.from_role|replace('superadmin','Admin')|replace('admin','Admin')|replace('reseller','Reseller')|replace('user','User') }}
+                        </span>
                     </div>
                     {% endif %}
                     <div class="msg-bubble">{{ msg.message }}</div>
@@ -100,11 +446,9 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
                 <div class="msg-avatar role-{{ active_contact.color }}">{{ active_contact.initial }}</div>
                 <div class="msg-body">
                     <div class="typing-bubble">
-                        <span class="typing-name">{{ active_contact.username }}</span>
+                        <span class="typing-name" id="typing-name">{{ active_contact.display_name }}</span>
                         <span> is typing</span>
-                        <span class="typing-dots">
-                            <span></span><span></span><span></span>
-                        </span>
+                        <span class="typing-dots"><span></span><span></span><span></span></span>
                     </div>
                 </div>
             </div>
@@ -113,39 +457,49 @@ window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else
         <!-- Input Bar -->
         <div class="chat-input-bar">
             <input type="text" id="chat-input" class="chat-input"
-                   placeholder="Type a message..." autocomplete="off" maxlength="2000">
-            <button id="chat-send-btn" class="chat-send-btn" title="Send">
+                   placeholder="Type a message… (Enter to send)" autocomplete="off" maxlength="2000">
+            <button id="chat-send-btn" class="chat-send-btn" title="Send message">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
 
-        <!-- Footer Badges -->
-        <div class="chat-footer-badges">
-            <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time Chat</span>
-            <span class="chat-badge green"><i class="fas fa-shield-alt"></i> E2E Secure</span>
-            <span class="chat-badge purple"><i class="fas fa-history"></i> Message History</span>
-            <span class="chat-badge blue"><i class="fas fa-circle"></i> Online Status</span>
+        <!-- Feature Strip -->
+        <div class="chat-feature-strip">
+            <span class="feature-badge cyan"><i class="fas fa-bolt"></i> Real-time</span>
+            <span class="feature-badge green"><i class="fas fa-shield-alt"></i> Secure</span>
+            <span class="feature-badge purple"><i class="fas fa-history"></i> History</span>
+            <span class="feature-badge amber"><i class="fas fa-circle"></i> Online Status</span>
         </div>
 
         {% else %}
-        <!-- No Contact Selected -->
+        <!-- No conversation selected -->
         <div class="chat-welcome">
-            <div class="chat-welcome-icon">
-                <i class="fas fa-comments"></i>
-            </div>
+            <div class="chat-welcome-icon"><i class="fas fa-comments"></i></div>
             <h3>Select a conversation</h3>
-            <p>Choose a contact from the left to start chatting</p>
-            <div class="chat-footer-badges" style="justify-content:center; margin-top:20px;">
-                <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time</span>
-                <span class="chat-badge green"><i class="fas fa-shield-alt"></i> Secure</span>
-                <span class="chat-badge purple"><i class="fas fa-history"></i> History</span>
-                <span class="chat-badge blue"><i class="fas fa-circle"></i> Online Status</span>
+            <p>Pick a contact from the left panel to start chatting</p>
+            <div style="display:flex; gap:8px; flex-wrap:wrap; justify-content:center; margin-top:12px;">
+                <span class="feature-badge cyan"><i class="fas fa-bolt"></i> Real-time</span>
+                <span class="feature-badge green"><i class="fas fa-shield-alt"></i> Secure</span>
+                <span class="feature-badge purple"><i class="fas fa-history"></i> History</span>
+                <span class="feature-badge amber"><i class="fas fa-users"></i> All Roles</span>
             </div>
         </div>
         {% endif %}
     </div>
+
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
+
+<script>
+function filterContacts(query) {
+    var q = (query || '').toLowerCase().trim();
+    var items = document.querySelectorAll('#contacts-list .contact-item');
+    items.forEach(function(el) {
+        var name = (el.dataset.name || '').toLowerCase();
+        el.style.display = (!q || name.includes(q)) ? '' : 'none';
+    });
+}
+</script>
 {% endblock %}
