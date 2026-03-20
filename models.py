@@ -309,13 +309,14 @@ class Database:
 
     # ── Files ────────────────────────────────────────────────────────
 
-    def create_file(self, app_id, name, url, file_id=None):
+    def create_file(self, app_id, name, url, file_id=None, authed=True):
         if self.mode == 'mongo':
             doc = {
                 'app_id': self._to_id(app_id),
                 'name': name,
                 'url': url,
-                'file_id': file_id or secrets.token_hex(4),
+                'file_id': file_id or secrets.token_hex(8),
+                'authed': bool(authed),
                 'created_at': self._now()
             }
             res = self.db.files.insert_one(doc)
