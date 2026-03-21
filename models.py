@@ -179,17 +179,43 @@ class Database:
                 'created_at': self._now(),
                 'is_active': True,
                 'is_paused': False,
+                'banned': False,            # Global ToS ban flag
                 'hwid_check': True,
+                'force_hwid': False,        # Force HWID to be provided even when hwid_check=False
                 'vpn_block': False,
                 'hash_check': False,
                 'server_hash': None,
                 'app_disabled_msg': "Application is currently disabled.",
                 'download_link': "",
                 'force_encryption': False,
+                'tokensystem': False,       # Enable token+thash verification at init
                 'session_expiry': 3600,
                 'minHwid': 0,
-                'discord_webhook_url': '',   # per-app Discord event webhook
-                'paused_msg': 'Application is currently paused, please wait for the developer to say otherwise.'
+                'discord_webhook_url': '',
+                'paused_msg': 'Application is currently paused, please wait for the developer to say otherwise.',
+                # ── Custom per-app error messages (KeyAuth parity) ──────────
+                'msg_usernametaken':    '',
+                'msg_keynotfound':      '',
+                'msg_keyused':          '',
+                'msg_nosublevel':       '',
+                'msg_usernamenotfound': '',
+                'msg_passmismatch':     '',
+                'msg_hwidmismatch':     '',
+                'msg_noactivesubs':     '',
+                'msg_hwidblacked':      '',
+                'msg_pausedsub':        '',
+                'msg_vpnblocked':       '',
+                'msg_keybanned':        '',
+                'msg_userbanned':       '',
+                'msg_sessionunauthed':  '',
+                'msg_hashcheckfail':    '',
+                'msg_tokeninvalid':     '',
+                'msg_tokenhash':        '',
+                'msg_loggedin':         '',
+                'msg_pausedapp':        '',
+                'msg_appdisabled':      '',
+                'msg_untershort':       '',
+                'msg_chatdelay':        '',
             }
             res = self.db.apps.insert_one(doc)
             return str(res.inserted_id)
@@ -210,11 +236,19 @@ class Database:
             oid = self._to_id(app_id)
             update_fields = {}
             allowed = [
-                'name', 'version', 'is_active', 'is_paused',
-                'hwid_check', 'vpn_block', 'hash_check',
+                'name', 'version', 'is_active', 'is_paused', 'banned',
+                'hwid_check', 'force_hwid', 'vpn_block', 'hash_check',
                 'app_disabled_msg', 'paused_msg', 'download_link',
-                'force_encryption', 'session_expiry', 'server_hash',
+                'force_encryption', 'tokensystem', 'session_expiry', 'server_hash',
                 'minHwid', 'discord_webhook_url',
+                # Custom per-app error messages
+                'msg_usernametaken', 'msg_keynotfound', 'msg_keyused',
+                'msg_nosublevel', 'msg_usernamenotfound', 'msg_passmismatch',
+                'msg_hwidmismatch', 'msg_noactivesubs', 'msg_hwidblacked',
+                'msg_pausedsub', 'msg_vpnblocked', 'msg_keybanned',
+                'msg_userbanned', 'msg_sessionunauthed', 'msg_hashcheckfail',
+                'msg_tokeninvalid', 'msg_tokenhash', 'msg_loggedin',
+                'msg_pausedapp', 'msg_appdisabled', 'msg_untershort', 'msg_chatdelay',
             ]
             for field in allowed:
                 if field in data:
@@ -969,6 +1003,16 @@ class Database:
             if not items: return False
             q['item'] = {'$in': items}
             return self.db.blacklists.find_one(q) is not None
+
+    def check_ip_whitelisted(self, app_id, ip):
+        """Return True if an IP is on the per-app VPN whitelist."""
+        if self.mode == 'mongo':
+            doc = self.db.vpn_whitelist.find_one({
+                'app_id': self._to_id(app_id),
+                'ip': ip
+            })
+            return doc is not None
+        return False
 
     # ── Logs ─────────────────────────────────────────────────────────
 
