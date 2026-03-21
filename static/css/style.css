@@ -929,6 +929,8 @@ hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
 .contact-avatar-wrap {
     position: relative;
     flex-shrink: 0;
+    width: 38px;
+    height: 38px;
 }
 
 .contact-avatar {
