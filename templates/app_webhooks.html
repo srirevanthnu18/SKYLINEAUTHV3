@@ -20,7 +20,7 @@
                 <input type="text" name="name" class="form-control" placeholder="e.g. Discord Notification" required>
             </div>
             <div class="form-group">
-                <label>Webhook URL</label>
+                <label>Base URL</label>
                 <input type="url" name="url" class="form-control" placeholder="https://..." required>
             </div>
             <div class="form-group">
@@ -36,15 +36,19 @@
 
 <div class="card mt-4">
     <div class="card-header">
-        <h3><i class="fas fa-webhook"></i> Active Webhooks</h3>
+        <h3><i class="fas fa-satellite-dish"></i> Active Webhooks</h3>
+    </div>
+    <div style="padding: 0 1.5rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+        Use the <strong>Webhook ID (webid)</strong> in your SDK code to call a webhook via <code>type=webhook&amp;webid=...</code>
     </div>
     <div class="table-wrapper">
         <table>
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>URL</th>
-                    <th>Authed</th>
+                    <th>Webhook ID (webid)</th>
+                    <th>Base URL</th>
+                    <th>Auth Required</th>
                     <th>Created</th>
                     <th>Actions</th>
                 </tr>
@@ -53,8 +57,19 @@
                 {% for webhook in webhooks %}
                 <tr>
                     <td>{{ webhook.name }}</td>
+                    <td>
+                        <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-size:0.85rem; cursor:pointer;"
+                              onclick="navigator.clipboard.writeText('{{ webhook.webid }}'); this.style.color='#7c3aed';"
+                              title="Click to copy">
+                            {{ webhook.webid }}
+                        </code>
+                    </td>
                     <td><small>{{ webhook.url }}</small></td>
-                    <td>{{ 'Yes' if webhook.authed else 'No' }}</td>
+                    <td>
+                        <span class="badge {% if webhook.authed %}badge-active{% else %}badge-inactive{% endif %}">
+                            {{ 'Yes' if webhook.authed else 'No' }}
+                        </span>
+                    </td>
                     <td>{{ webhook.created_at.strftime('%Y-%m-%d') }}</td>
                     <td class="table-actions">
                         <form method="POST"
@@ -62,6 +77,12 @@
                             onsubmit="return confirm('Delete this webhook?')">
                             <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
                         </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align:center; color: var(--text-muted); padding: 2rem;">
+                        No webhooks created yet. Add one above.
                     </td>
                 </tr>
                 {% endfor %}
