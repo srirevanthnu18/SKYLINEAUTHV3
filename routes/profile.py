@@ -85,10 +85,10 @@ def upload_pic():
         filepath = os.path.join(upload_folder, filename)
         file.save(filepath)
         
-        # Update database
         db.update_admin(str(admin['_id']), {'profile_pic': filename})
+        session['profile_pic'] = filename
         flash('Profile picture updated!', 'success')
     else:
         flash('Invalid file type. Use PNG, JPG, GIF or WebP.', 'error')
-    
+
     return redirect(url_for('profile.index'))
