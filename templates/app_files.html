@@ -1,273 +1,93 @@
 {% extends "base.html" %}
-{% block title %}SKYLINE - Files · {{ app.name }}{% endblock %}
-{% block page_title %}App Files{% endblock %}
+{% block title %}SKYLINE - Files for {{ app.name }}{% endblock %}
+{% block page_title %}Application Files{% endblock %}
 
 {% block content %}
-<style>
-/* ── Upload Card ─────────────────────────────────────────────── */
-.upload-card {
-    border-radius: 20px; margin-bottom: 28px; overflow: hidden;
-    background: linear-gradient(145deg, rgba(14,14,22,0.98), rgba(18,18,30,0.95));
-    border: 1px solid rgba(0,217,255,0.18);
-    box-shadow: 0 0 40px rgba(0,217,255,0.05), 0 20px 50px rgba(0,0,0,0.35);
-}
-.upload-card-header {
-    padding: 20px 28px;
-    background: linear-gradient(90deg, rgba(0,217,255,0.07), rgba(124,58,237,0.07));
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    display: flex; align-items: center; gap: 12px;
-}
-.upload-card-header .header-icon {
-    width: 38px; height: 38px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    background: linear-gradient(135deg, rgba(0,217,255,0.15), rgba(124,58,237,0.2));
-    border: 1px solid rgba(0,217,255,0.25); font-size: 16px;
-}
-.upload-card-header h3 { margin:0; font-size:16px; color:#e2e8f0; font-weight:700; }
-.upload-card-body { padding: 24px 28px; }
-
-.upload-form-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px; margin-bottom: 20px;
-}
-@media (max-width: 640px) { .upload-form-grid { grid-template-columns: 1fr; } }
-
-.fgroup label {
-    display: block; font-size: 12px; font-weight: 600;
-    color: #888; text-transform: uppercase; letter-spacing: 0.6px; margin-bottom: 8px;
-}
-.fgroup input[type="text"],
-.fgroup input[type="url"] {
-    width: 100%; padding: 12px 16px; box-sizing: border-box;
-    background: rgba(255,255,255,0.04);
-    border: 1px solid rgba(255,255,255,0.08); border-radius: 10px;
-    color: #e2e8f0; font-size: 14px; outline: none;
-    transition: border-color 0.2s, box-shadow 0.2s;
-}
-.fgroup input:focus {
-    border-color: rgba(0,217,255,0.45);
-    box-shadow: 0 0 0 3px rgba(0,217,255,0.08);
-}
-
-.toggle-row {
-    display: flex; align-items: center; gap: 12px; padding: 14px 18px;
-    background: rgba(255,255,255,0.03); border-radius: 10px;
-    border: 1px solid rgba(255,255,255,0.06); cursor: pointer;
-    transition: border-color 0.2s;
-}
-.toggle-row:hover { border-color: rgba(0,217,255,0.2); }
-.toggle-row input { display:none; }
-.toggle-switch {
-    width: 38px; height: 20px; border-radius: 999px;
-    background: rgba(255,255,255,0.12); position: relative;
-    transition: background 0.2s; flex-shrink: 0;
-}
-.toggle-switch::after {
-    content:''; position:absolute; left:3px; top:3px;
-    width:14px; height:14px; border-radius:50%;
-    background:#fff; transition:left 0.2s;
-}
-.toggle-row input:checked ~ .toggle-switch { background: linear-gradient(135deg,#00d9ff,#7c3aed); }
-.toggle-row input:checked ~ .toggle-switch::after { left: 21px; }
-.toggle-label { font-size:13px; color:#bbb; }
-.toggle-sub { font-size:11px; color:#555; margin-top:2px; }
-
-.btn-upload {
-    display: inline-flex; align-items: center; gap: 8px;
-    padding: 12px 28px; border-radius: 10px;
-    font-size: 14px; font-weight: 700; border: none; cursor: pointer;
-    color: #0a0a14;
-    background: linear-gradient(135deg, #00d9ff, #7c3aed);
-    box-shadow: 0 4px 20px rgba(0,217,255,0.3);
-    transition: opacity 0.2s, transform 0.15s;
-}
-.btn-upload:hover { opacity:0.88; transform:scale(1.02); }
-
-/* ── Files Table ─────────────────────────────────────────────── */
-.files-table-card {
-    border-radius: 20px; overflow: hidden;
-    background: linear-gradient(145deg, rgba(14,14,22,0.98), rgba(18,18,30,0.95));
-    border: 1px solid rgba(255,255,255,0.06);
-    box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-}
-.files-table-header {
-    padding: 20px 28px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
-    display: flex; align-items: center; justify-content: space-between;
-}
-.files-table-header h3 { margin:0; font-size:16px; color:#e2e8f0; font-weight:700; display:flex; align-items:center; gap:10px; }
-.count-badge {
-    display: inline-flex; align-items:center; padding: 3px 10px;
-    border-radius: 999px; font-size: 12px; font-weight: 700;
-    background: rgba(0,217,255,0.1); color: #00d9ff;
-    border: 1px solid rgba(0,217,255,0.2);
-}
-
-.files-table { width:100%; border-collapse:collapse; }
-.files-table th {
-    padding: 12px 20px; text-align:left;
-    font-size: 11px; text-transform:uppercase; letter-spacing:0.8px;
-    color: #555; font-weight:600;
-    border-bottom: 1px solid rgba(255,255,255,0.04);
-    background: rgba(255,255,255,0.02);
-}
-.files-table td {
-    padding: 16px 20px; font-size:14px; color:#ccc;
-    border-bottom: 1px solid rgba(255,255,255,0.03);
-    vertical-align: middle;
-}
-.files-table tr:last-child td { border-bottom: none; }
-.files-table tr:hover td { background: rgba(0,217,255,0.025); }
-
-.url-cell { max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.copy-id {
-    display: inline-block;
-    background: rgba(255,255,255,0.06); border-radius: 6px;
-    padding: 3px 10px; font-family: monospace; font-size:13px; cursor:pointer;
-    border: 1px solid rgba(255,255,255,0.08);
-    transition: background 0.15s, color 0.15s;
-}
-.copy-id:hover { background: rgba(0,217,255,0.1); color:#00d9ff; }
-
-.badge-auth { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; background:rgba(0,255,136,0.1); color:#00ff88; border:1px solid rgba(0,255,136,0.2); }
-.badge-pub  { display:inline-flex; align-items:center; gap:5px; padding:3px 10px; border-radius:999px; font-size:11px; font-weight:600; background:rgba(251,191,36,0.1); color:#fbbf24; border:1px solid rgba(251,191,36,0.2); }
-
-.btn-del {
-    display:inline-flex; align-items:center; gap:6px;
-    padding:7px 14px; border-radius:8px; border:none; cursor:pointer;
-    font-size:12px; font-weight:600;
-    background: rgba(230,57,70,0.12); color:#f87171;
-    border: 1px solid rgba(230,57,70,0.2);
-    transition: background 0.2s;
-}
-.btn-del:hover { background: rgba(230,57,70,0.25); }
-
-.empty-state { text-align:center; padding:60px 20px; }
-.empty-state i { font-size:48px; color:#333; margin-bottom:14px; display:block; }
-.empty-state p { color:#555; font-size:14px; margin:0; }
-
-.back-link {
-    display:inline-flex; align-items:center; gap:8px;
-    color:#888; font-size:13px; text-decoration:none; margin-bottom:24px;
-    padding:8px 16px; border-radius:8px;
-    border: 1px solid rgba(255,255,255,0.07);
-    transition: color 0.2s, border-color 0.2s;
-}
-.back-link:hover { color:#00d9ff; border-color:rgba(0,217,255,0.3); }
-</style>
-
-<a href="{{ url_for('apps.manage', app_id=app._id) }}" class="back-link">
-    <i class="fas fa-arrow-left"></i> Back to {{ app.name }}
-</a>
-
-<!-- Upload Form -->
-<div class="upload-card">
-    <div class="upload-card-header">
-        <div class="header-icon"><i class="fas fa-plus" style="color:#00d9ff;"></i></div>
-        <h3>Add New File</h3>
-    </div>
-    <div class="upload-card-body">
-        <form method="POST" action="{{ url_for('apps_extra.create_file', app_id=app._id) }}">
-            <div class="upload-form-grid">
-                <div class="fgroup">
-                    <label>File Name</label>
-                    <input type="text" name="name" placeholder="e.g. Loader v2.3" required>
-                </div>
-                <div class="fgroup">
-                    <label>Direct Download URL</label>
-                    <input type="url" name="url" placeholder="https://cdn.example.com/loader.exe" required>
-                </div>
-            </div>
-            <label class="toggle-row" style="display:flex;">
-                <input type="checkbox" name="authed" checked>
-                <div class="toggle-switch"></div>
-                <div>
-                    <div class="toggle-label">Require Authentication</div>
-                    <div class="toggle-sub">When enabled, users must be logged in to see this file in the download center</div>
-                </div>
-            </label>
-            <div style="margin-top:20px;">
-                <button type="submit" class="btn-upload">
-                    <i class="fas fa-cloud-upload-alt"></i> Upload File Link
-                </button>
-            </div>
-        </form>
-    </div>
+<div style="margin-bottom: 1.5rem;">
+    <a href="{{ url_for('apps.manage', app_id=app._id) }}" class="btn btn-outline">
+        <i class="fas fa-arrow-left"></i> Back to App
+    </a>
 </div>
 
-<!-- Files List -->
-<div class="files-table-card">
-    <div class="files-table-header">
-        <h3>
-            <i class="fas fa-file-export" style="color:#00d9ff;"></i>
-            File Library
-        </h3>
-        <span class="count-badge">{{ files|length }} file{{ 's' if files|length != 1 else '' }}</span>
+<div class="card">
+    <div class="card-header">
+        <h3><i class="fas fa-plus"></i> Add File Entry</h3>
     </div>
-
-    {% if files %}
-    <table class="files-table">
-        <thead>
-            <tr>
-                <th>Name</th>
-                <th>File ID</th>
-                <th>Auth Required</th>
-                <th>Download URL</th>
-                <th>Added</th>
-                <th>Action</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for file in files %}
-            <tr>
-                <td><strong style="color:#e2e8f0;">{{ file.name }}</strong></td>
-                <td>
-                    <span class="copy-id"
-                          onclick="navigator.clipboard.writeText('{{ file.file_id }}'); this.textContent='Copied!'; setTimeout(()=>this.textContent='{{ file.file_id }}',1500);"
-                          title="Click to copy File ID">
-                        {{ file.file_id }}
-                    </span>
-                </td>
-                <td>
-                    {% if file.get('authed', True) %}
-                    <span class="badge-auth"><i class="fas fa-lock" style="font-size:9px;"></i> Yes</span>
-                    {% else %}
-                    <span class="badge-pub"><i class="fas fa-globe" style="font-size:9px;"></i> No</span>
-                    {% endif %}
-                </td>
-                <td class="url-cell" title="{{ file.url }}">
-                    <a href="{{ file.url }}" target="_blank" style="color:#00d9ff; text-decoration:none;">{{ file.url }}</a>
-                </td>
-                <td style="color:#666;">{{ file.created_at.strftime('%Y-%m-%d') if file.created_at else 'N/A' }}</td>
-                <td>
-                    <form method="POST"
-                          action="{{ url_for('apps_extra.delete_file', app_id=app._id, file_id=file._id) }}"
-                          onsubmit="return confirm('Delete {{ file.name }}?')">
-                        <button type="submit" class="btn-del">
-                            <i class="fas fa-trash"></i> Delete
-                        </button>
-                    </form>
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
-    {% else %}
-    <div class="empty-state">
-        <i class="fas fa-inbox"></i>
-        <p>No files uploaded yet. Add one above to get started.</p>
-    </div>
-    {% endif %}
+    <form method="POST" action="{{ url_for('apps_extra.create_file', app_id=app._id) }}">
+        <div class="form-row">
+            <div class="form-group">
+                <label>File Name</label>
+                <input type="text" name="name" class="form-control" placeholder="e.g. Cheat Loader" required>
+            </div>
+            <div class="form-group">
+                <label>Direct Download URL</label>
+                <input type="url" name="url" class="form-control" placeholder="https://..." required>
+            </div>
+            <div class="form-group">
+                <label>Authentication Required</label>
+                <div style="padding-top:8px;">
+                    <input type="checkbox" name="authed" checked> (User must be authenticated to download)
+                </div>
+            </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-3"><i class="fas fa-plus"></i> Add File</button>
+    </form>
 </div>
 
-<script>
-/* Animate the toggle switch label */
-document.querySelectorAll('.toggle-row input[type=checkbox]').forEach(function(cb){
-    cb.addEventListener('change', function(){
-        var sw = this.nextElementSibling;
-        sw.style.transition = 'background 0.25s';
-    });
-});
-</script>
+<div class="card mt-4">
+    <div class="card-header">
+        <h3><i class="fas fa-file-export"></i> Cloud Files</h3>
+    </div>
+    <div style="padding: 0 1.5rem 1rem; color: var(--text-muted); font-size: 0.85rem;">
+        Use the <strong>File ID</strong> in your SDK code to retrieve a file via <code>type=file&amp;fileid=...</code>. The file content is returned base64-encoded.
+    </div>
+    <div class="table-wrapper">
+        <table>
+            <thead>
+                <tr>
+                    <th>File Name</th>
+                    <th>File ID</th>
+                    <th>Auth Required</th>
+                    <th>Download URL</th>
+                    <th>Created</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for file in files %}
+                <tr>
+                    <td>{{ file.name }}</td>
+                    <td>
+                        <code style="background: var(--bg-secondary); padding: 2px 6px; border-radius: 4px; font-size:0.85rem; cursor:pointer;"
+                              onclick="navigator.clipboard.writeText('{{ file.file_id }}'); this.style.color='#7c3aed';"
+                              title="Click to copy">
+                            {{ file.file_id }}
+                        </code>
+                    </td>
+                    <td>
+                        <span class="badge {% if file.authed %}badge-active{% else %}badge-inactive{% endif %}">
+                            {{ 'Yes' if file.authed else 'No' }}
+                        </span>
+                    </td>
+                    <td><small>{{ file.url }}</small></td>
+                    <td>{{ file.created_at.strftime('%Y-%m-%d') }}</td>
+                    <td class="table-actions">
+                        <form method="POST"
+                            action="{{ url_for('apps_extra.delete_file', app_id=app._id, file_id=file._id) }}"
+                            onsubmit="return confirm('Delete this file entry?')">
+                            <button type="submit" class="btn btn-sm btn-danger"><i class="fas fa-trash"></i></button>
+                        </form>
+                    </td>
+                </tr>
+                {% else %}
+                <tr>
+                    <td colspan="6" style="text-align:center; color: var(--text-muted); padding: 2rem;">
+                        No files added yet. Add one above.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
 {% endblock %}
