@@ -1,0 +1,525 @@
+{% extends "base.html" %}
+{% block title %}SKYLINE — Files{% endblock %}
+{% block page_title %}Files{% endblock %}
+
+{% block content %}
+
+<style>
+/* ── Files Hub Page Styles ───────────────────────────────────── */
+.files-hero {
+    position: relative;
+    overflow: hidden;
+    background: radial-gradient(ellipse at 0% 0%, rgba(124,58,237,0.25) 0%, transparent 55%),
+                radial-gradient(ellipse at 100% 0%, rgba(0,217,255,0.15) 0%, transparent 55%),
+                linear-gradient(180deg, rgba(12,12,20,0.95), rgba(8,8,16,0.98));
+    border: 1px solid rgba(124,58,237,0.3);
+    border-radius: 18px;
+    padding: 36px 36px 32px;
+    margin-bottom: 28px;
+    box-shadow: 0 0 60px rgba(124,58,237,0.12), 0 4px 32px rgba(0,0,0,0.5);
+}
+.files-hero::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%237c3aed' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+    pointer-events: none;
+    opacity: 0.5;
+}
+.files-hero-title {
+    font-size: 28px;
+    font-weight: 800;
+    background: linear-gradient(135deg, #ffffff 0%, #a78bfa 50%, #00d9ff 100%);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    margin-bottom: 6px;
+    position: relative;
+}
+.files-hero-subtitle {
+    color: var(--text-sec);
+    font-size: 14px;
+    position: relative;
+}
+.files-hero-stats {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    flex-wrap: wrap;
+}
+.files-stat-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(124,58,237,0.1);
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 999px;
+    padding: 6px 16px;
+    font-size: 13px;
+    color: var(--text-sec);
+    position: relative;
+}
+.files-stat-pill i { color: #a78bfa; }
+.files-stat-pill strong { color: #fff; }
+
+/* Upload Form */
+.upload-card {
+    background: linear-gradient(135deg, rgba(14,14,24,0.95), rgba(10,10,18,0.98));
+    border: 1px solid rgba(124,58,237,0.25);
+    border-radius: 16px;
+    padding: 28px;
+    margin-bottom: 28px;
+    box-shadow: 0 4px 24px rgba(0,0,0,0.5), 0 0 0 1px rgba(124,58,237,0.05) inset;
+    position: relative;
+    overflow: hidden;
+}
+.upload-card::after {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 2px;
+    background: linear-gradient(90deg, transparent, #7c3aed, #00d9ff, transparent);
+}
+.upload-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-bottom: 20px;
+}
+.upload-card-title i { color: #a78bfa; font-size: 16px; }
+
+.upload-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+}
+.upload-grid .span-full { grid-column: 1 / -1; }
+@media (max-width: 600px) { .upload-grid { grid-template-columns: 1fr; } }
+
+.form-field label {
+    display: block;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.7px;
+    text-transform: uppercase;
+    color: var(--text-muted);
+    margin-bottom: 6px;
+}
+.form-field input,
+.form-field select,
+.form-field textarea {
+    width: 100%;
+    background: rgba(255,255,255,0.04);
+    border: 1px solid rgba(124,58,237,0.2);
+    border-radius: 10px;
+    padding: 10px 14px;
+    color: #fff;
+    font-size: 13px;
+    outline: none;
+    transition: border-color 0.2s, box-shadow 0.2s;
+    font-family: inherit;
+}
+.form-field input:focus,
+.form-field select:focus,
+.form-field textarea:focus {
+    border-color: rgba(124,58,237,0.5);
+    box-shadow: 0 0 0 3px rgba(124,58,237,0.1);
+}
+.form-field select option { background: #0a0a14; }
+
+.btn-upload {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: linear-gradient(135deg, #7c3aed, #6366f1);
+    border: none;
+    border-radius: 10px;
+    padding: 10px 22px;
+    color: #fff;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+    box-shadow: 0 4px 16px rgba(124,58,237,0.35);
+    margin-top: 6px;
+}
+.btn-upload:hover {
+    opacity: 0.9;
+    transform: translateY(-1px);
+    box-shadow: 0 6px 24px rgba(124,58,237,0.5);
+}
+
+/* Category filter bar */
+.filter-bar {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    margin-bottom: 20px;
+    align-items: center;
+}
+.filter-chip {
+    padding: 5px 14px;
+    border-radius: 999px;
+    font-size: 12px;
+    font-weight: 600;
+    border: 1px solid rgba(124,58,237,0.25);
+    background: rgba(124,58,237,0.08);
+    color: var(--text-sec);
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+.filter-chip:hover, .filter-chip.active {
+    background: rgba(124,58,237,0.2);
+    border-color: rgba(124,58,237,0.5);
+    color: #a78bfa;
+}
+
+/* Files Grid */
+.files-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 18px;
+}
+.file-card {
+    background: linear-gradient(160deg, rgba(16,16,28,0.95), rgba(10,10,18,0.98));
+    border: 1px solid rgba(124,58,237,0.15);
+    border-radius: 16px;
+    padding: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    position: relative;
+    overflow: hidden;
+    transition: border-color 0.25s, transform 0.2s, box-shadow 0.25s;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.4);
+}
+.file-card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, rgba(124,58,237,0.4), transparent);
+    opacity: 0;
+    transition: opacity 0.25s;
+}
+.file-card:hover {
+    border-color: rgba(124,58,237,0.4);
+    transform: translateY(-3px);
+    box-shadow: 0 12px 40px rgba(0,0,0,0.5), 0 0 20px rgba(124,58,237,0.1);
+}
+.file-card:hover::before { opacity: 1; }
+
+.file-card-icon {
+    width: 46px; height: 46px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 20px;
+    flex-shrink: 0;
+    position: relative;
+}
+.file-card-icon.loader   { background: rgba(124,58,237,0.15); color: #a78bfa; box-shadow: 0 0 16px rgba(124,58,237,0.2); }
+.file-card-icon.update   { background: rgba(0,217,255,0.12);  color: #00d9ff; box-shadow: 0 0 16px rgba(0,217,255,0.15); }
+.file-card-icon.tool     { background: rgba(251,191,36,0.12);  color: #fbbf24; box-shadow: 0 0 16px rgba(251,191,36,0.15); }
+.file-card-icon.general  { background: rgba(99,102,241,0.15);  color: #818cf8; box-shadow: 0 0 16px rgba(99,102,241,0.2); }
+.file-card-icon.driver   { background: rgba(16,185,129,0.12);  color: #34d399; box-shadow: 0 0 16px rgba(16,185,129,0.15); }
+
+.file-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+}
+.file-card-name {
+    font-size: 15px;
+    font-weight: 700;
+    color: #fff;
+    line-height: 1.3;
+    margin-bottom: 3px;
+}
+.file-card-meta {
+    font-size: 11px;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-wrap: wrap;
+}
+.file-card-desc {
+    font-size: 13px;
+    color: var(--text-sec);
+    line-height: 1.55;
+    flex: 1;
+}
+.file-card-footer {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    margin-top: auto;
+    padding-top: 12px;
+    border-top: 1px solid rgba(255,255,255,0.05);
+    flex-wrap: wrap;
+}
+.btn-download {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    background: linear-gradient(135deg, rgba(124,58,237,0.15), rgba(99,102,241,0.15));
+    border: 1px solid rgba(124,58,237,0.35);
+    border-radius: 8px;
+    padding: 8px 16px;
+    color: #a78bfa;
+    font-size: 13px;
+    font-weight: 600;
+    text-decoration: none;
+    transition: all 0.2s;
+    flex: 1;
+    justify-content: center;
+}
+.btn-download:hover {
+    background: linear-gradient(135deg, rgba(124,58,237,0.3), rgba(99,102,241,0.3));
+    border-color: rgba(124,58,237,0.6);
+    color: #c4b5fd;
+    box-shadow: 0 0 20px rgba(124,58,237,0.25);
+    transform: translateY(-1px);
+}
+.btn-download i { font-size: 12px; }
+
+.btn-delete-file {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    background: rgba(220,38,38,0.1);
+    border: 1px solid rgba(220,38,38,0.25);
+    border-radius: 8px;
+    padding: 8px 12px;
+    color: #f87171;
+    font-size: 12px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+.btn-delete-file:hover {
+    background: rgba(220,38,38,0.2);
+    border-color: rgba(220,38,38,0.5);
+    box-shadow: 0 0 12px rgba(220,38,38,0.2);
+}
+
+.cat-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 8px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+.cat-badge.loader  { background: rgba(124,58,237,0.15); color: #a78bfa; border: 1px solid rgba(124,58,237,0.3); }
+.cat-badge.update  { background: rgba(0,217,255,0.1);   color: #00d9ff; border: 1px solid rgba(0,217,255,0.25);}
+.cat-badge.tool    { background: rgba(251,191,36,0.1);   color: #fbbf24; border: 1px solid rgba(251,191,36,0.25);}
+.cat-badge.general { background: rgba(99,102,241,0.12);  color: #818cf8; border: 1px solid rgba(99,102,241,0.25);}
+.cat-badge.driver  { background: rgba(16,185,129,0.1);   color: #34d399; border: 1px solid rgba(16,185,129,0.25);}
+
+.empty-state {
+    grid-column: 1 / -1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    padding: 72px 24px;
+    text-align: center;
+    gap: 14px;
+}
+.empty-state-icon {
+    width: 80px; height: 80px;
+    background: rgba(124,58,237,0.08);
+    border: 1px solid rgba(124,58,237,0.15);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 32px;
+    color: rgba(167,139,250,0.3);
+}
+.empty-state p { color: var(--text-muted); font-size: 14px; }
+
+/* Glow pulse animation for the hero icon */
+@keyframes glow-pulse {
+    0%, 100% { box-shadow: 0 0 20px rgba(124,58,237,0.4); }
+    50%       { box-shadow: 0 0 40px rgba(124,58,237,0.7), 0 0 60px rgba(0,217,255,0.2); }
+}
+.hero-icon-wrap {
+    position: absolute;
+    right: 36px; top: 50%;
+    transform: translateY(-50%);
+    width: 90px; height: 90px;
+    background: radial-gradient(circle, rgba(124,58,237,0.2), rgba(99,102,241,0.1));
+    border: 1px solid rgba(124,58,237,0.35);
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 36px;
+    color: rgba(167,139,250,0.8);
+    animation: glow-pulse 3s ease-in-out infinite;
+}
+@media (max-width: 600px) { .hero-icon-wrap { display: none; } }
+</style>
+
+<!-- Hero Header -->
+<div class="files-hero">
+    <div class="hero-icon-wrap">
+        <i class="fas fa-folder-open"></i>
+    </div>
+    <div class="files-hero-title">
+        <i class="fas fa-download" style="font-size:22px; margin-right:4px;"></i>
+        Files Hub
+    </div>
+    <div class="files-hero-subtitle">Browse and download all available files.</div>
+    <div class="files-hero-stats">
+        <div class="files-stat-pill">
+            <i class="fas fa-file-archive"></i>
+            <strong>{{ files|length }}</strong> file{{ 's' if files|length != 1 else '' }} available
+        </div>
+        {% if session.get('role') in ['superadmin', 'admin'] %}
+        <div class="files-stat-pill">
+            <i class="fas fa-shield-alt"></i>
+            Admin access
+        </div>
+        {% endif %}
+    </div>
+</div>
+
+<!-- Upload Form (admin/superadmin only) -->
+{% if session.get('role') in ['superadmin', 'admin'] %}
+<div class="upload-card">
+    <div class="upload-card-title">
+        <i class="fas fa-plus-circle"></i>
+        Add New File
+    </div>
+    <form method="POST" action="{{ url_for('files.add') }}">
+        <div class="upload-grid">
+            <div class="form-field">
+                <label>File Name</label>
+                <input type="text" name="name" placeholder="e.g. SKYLINE Loader v2.1" required maxlength="120">
+            </div>
+            <div class="form-field">
+                <label>Category</label>
+                <select name="category">
+                    <option value="loader">Loader</option>
+                    <option value="update">Update</option>
+                    <option value="driver">Driver</option>
+                    <option value="tool">Tool</option>
+                    <option value="general" selected>General</option>
+                </select>
+            </div>
+            <div class="form-field span-full">
+                <label>Download URL</label>
+                <input type="url" name="url" placeholder="https://example.com/file.zip" required>
+            </div>
+            <div class="form-field span-full">
+                <label>Description (optional)</label>
+                <textarea name="description" rows="2" placeholder="Brief description of this file..." maxlength="500"></textarea>
+            </div>
+        </div>
+        <button type="submit" class="btn-upload">
+            <i class="fas fa-cloud-upload-alt"></i> Add File
+        </button>
+    </form>
+</div>
+{% endif %}
+
+<!-- Filter Chips -->
+{% if files %}
+<div class="filter-bar">
+    <span style="font-size:12px; color:var(--text-muted); font-weight:600;">FILTER:</span>
+    <a href="#" class="filter-chip active" onclick="filterFiles('all', this); return false;">
+        <i class="fas fa-th-large" style="margin-right:4px;"></i> All
+    </a>
+    {% for cat in categories %}
+    <a href="#" class="filter-chip" onclick="filterFiles('{{ cat }}', this); return false;">
+        {% if cat == 'loader' %}<i class="fas fa-rocket" style="margin-right:4px;"></i>
+        {% elif cat == 'update' %}<i class="fas fa-sync-alt" style="margin-right:4px;"></i>
+        {% elif cat == 'driver' %}<i class="fas fa-microchip" style="margin-right:4px;"></i>
+        {% elif cat == 'tool' %}<i class="fas fa-wrench" style="margin-right:4px;"></i>
+        {% else %}<i class="fas fa-file" style="margin-right:4px;"></i>{% endif %}
+        {{ cat|capitalize }}
+    </a>
+    {% endfor %}
+</div>
+{% endif %}
+
+<!-- Files Grid -->
+<div class="files-grid" id="files-grid">
+    {% if not files %}
+    <div class="empty-state">
+        <div class="empty-state-icon"><i class="fas fa-folder-open"></i></div>
+        <p>No files available yet.{% if session.get('role') in ['superadmin','admin'] %} Add the first one above.{% endif %}</p>
+    </div>
+    {% else %}
+    {% for file in files %}
+    {% set cat = file.category or 'general' %}
+    <div class="file-card" data-category="{{ cat }}">
+        <div class="file-card-header">
+            <div class="file-card-icon {{ cat }}">
+                {% if cat == 'loader' %}<i class="fas fa-rocket"></i>
+                {% elif cat == 'update' %}<i class="fas fa-sync-alt"></i>
+                {% elif cat == 'driver' %}<i class="fas fa-microchip"></i>
+                {% elif cat == 'tool' %}<i class="fas fa-wrench"></i>
+                {% else %}<i class="fas fa-file-archive"></i>{% endif %}
+            </div>
+            <div style="flex:1; min-width:0;">
+                <div class="file-card-name">{{ file.name }}</div>
+                <div class="file-card-meta">
+                    <span class="cat-badge {{ cat }}">{{ cat }}</span>
+                    <span><i class="fas fa-user-shield" style="margin-right:3px;"></i>{{ file.added_by }}</span>
+                    <span><i class="fas fa-clock" style="margin-right:3px;"></i>{{ file.created_at.strftime('%b %d, %Y') }}</span>
+                </div>
+            </div>
+        </div>
+
+        {% if file.description %}
+        <div class="file-card-desc">{{ file.description }}</div>
+        {% endif %}
+
+        <div class="file-card-footer">
+            <a href="{{ file.url }}" target="_blank" rel="noopener" class="btn-download">
+                <i class="fas fa-download"></i> Download
+            </a>
+            {% if session.get('role') in ['superadmin', 'admin'] %}
+            <form method="POST" action="{{ url_for('files.delete', file_id=file._id|string) }}"
+                  onsubmit="return confirm('Remove this file entry?');" style="margin:0;">
+                <button type="submit" class="btn-delete-file">
+                    <i class="fas fa-trash"></i>
+                </button>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+    {% endif %}
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+function filterFiles(cat, el) {
+    document.querySelectorAll('.filter-chip').forEach(c => c.classList.remove('active'));
+    el.classList.add('active');
+    document.querySelectorAll('.file-card').forEach(card => {
+        if (cat === 'all' || card.dataset.category === cat) {
+            card.style.display = '';
+        } else {
+            card.style.display = 'none';
+        }
+    });
+}
+</script>
+{% endblock %}
