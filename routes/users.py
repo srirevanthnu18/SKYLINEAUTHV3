@@ -84,13 +84,23 @@ def create():
     pkg = db.get_package_by_id(package_id)
     app = db.get_app_by_id(app_id)
     days_val = int(custom_days) if custom_days else None
-    
-    created_users, error = db.create_user_direct(
-        app_id, package_id, str(admin['_id']),
-        count=count, custom_days=days_val, hwid_lock=hwid_lock,
-        username=username if username else None,
-        password=password if password else None
-    )
+    create_type = request.form.get('create_type', 'license')
+
+    if create_type == 'user_account':
+        created_users, error = db.create_user_direct(
+            app_id, package_id, str(admin['_id']),
+            count=count, custom_days=days_val, hwid_lock=hwid_lock,
+            username=username if username else None,
+            password=password if password else None,
+            force_user_account=True,
+        )
+    else:
+        custom_key = request.form.get('custom_key', '').strip()
+        created_users, error = db.create_user_direct(
+            app_id, package_id, str(admin['_id']),
+            count=count, custom_days=days_val, hwid_lock=hwid_lock,
+            custom_key=custom_key if custom_key else None,
+        )
 
     if error:
         flash(error, 'error')
