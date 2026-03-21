@@ -1,0 +1,89 @@
+Create a clean, production-ready authentication system fully compatible with the OFFICIAL KeyAuth SDK.
+
+Requirements:
+
+1. Compatibility:
+- Must work seamlessly with official KeyAuth SDKs for:
+  - Java
+  - C#
+  - C++
+  - Python
+- Do NOT modify SDK request/response structure.
+- Follow KeyAuth API standards strictly (same encryption, hashing, request format).
+
+2. License System Fix:
+- Fix issue where license keys are treated as passwords.
+- Proper separation:
+  - License key = unique activation token
+  - Password = user-defined credential
+- Ensure:
+  - License is only used for activation/upgrade
+  - Authentication uses username + password
+- Store licenses securely and validate correctly.
+
+3. Features:
+- User registration (username + password + optional license)
+- Login system
+- License activation system
+- License expiry handling
+- HWID locking (optional toggle)
+- Secure session management
+- Error handling with clear messages
+
+4. Security:
+- Use strong hashing (SHA-256 or better)
+- Prevent replay attacks
+- Encrypt sensitive data
+- Validate all inputs
+- Do NOT expose secrets
+
+5. API Layer:
+- Create a backend API that mimics KeyAuth-compatible responses
+- Ensure response format matches official SDK expectations exactly
+
+6. Code Quality:
+- Clean, modular, well-commented
+- Separate files for:
+  - Auth logic
+  - License handling
+  - API routes
+- Use consistent naming conventions
+- No messy or redundant code
+
+7. Multi-language Examples:
+Provide working examples for:
+- Java (using KeyAuth SDK style)
+- C#
+- C++
+- Python
+
+Each example should:
+- Initialize KeyAuth
+- Login user
+- Activate license
+- Handle errors properly
+
+8. Fix Existing Issues:
+- License being used as password → FIX completely
+- Broken validation logic → FIX
+- Inconsistent responses → FIX
+- Any SDK incompatibility → FIX
+
+9. GitHub Integration:
+- Structure project for GitHub
+- Include:
+  - README.md (setup + usage)
+  - .env example
+  - Clean folder structure
+- DO NOT include real tokens, but show where to place them
+
+10. Output:
+- Full working backend code
+- Client examples (Java, C#, C++, Python)
+- Clear instructions to run on Replit
+- Everything should be neat, clean, and production-ready
+
+Important:
+- Must remain 100% compatible with OFFICIAL KeyAuth SDK
+- Do NOT reinvent protocol — follow KeyAuth standards
+- Focus on stability, clarity, and security
