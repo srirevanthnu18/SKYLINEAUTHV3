@@ -90,8 +90,9 @@ def manage(app_id):
         flash('Application not found.', 'error')
         return redirect(url_for('apps.index'))
     
-    # Get owner info
-    owner = db.get_admin_by_id(str(app['owner_id']))
+    # Get owner info via owner_mongo_id (owner_id is now the owner_key string)
+    owner_ref = str(app.get('owner_mongo_id') or app.get('owner_id', ''))
+    owner = db.get_admin_by_id(owner_ref)
     
     # Build API URL from request - Point to 1.2
     api_url = f"{request.scheme}://{request.host}/api/1.2"
@@ -115,10 +116,12 @@ def update_settings(app_id):
         'hash_check': request.form.get('hash_check') == 'on',
         'force_encryption': request.form.get('force_encryption') == 'on',
         'app_disabled_msg': request.form.get('app_disabled_msg'),
+        'paused_msg': request.form.get('paused_msg'),
         'download_link': request.form.get('download_link'),
         'session_expiry': int(request.form.get('session_expiry', 3600)),
         'server_hash': request.form.get('server_hash'),
-        'minHwid': int(request.form.get('min_hwid', 0))
+        'minHwid': int(request.form.get('min_hwid', 0)),
+        'discord_webhook_url': request.form.get('discord_webhook_url', '').strip(),
     }
     db.update_app_settings(app_id, data)
     flash('Application settings updated.', 'success')
