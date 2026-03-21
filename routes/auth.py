@@ -37,11 +37,8 @@ def get_current_admin():
     if 'admin_id' in session:
         admin = db.get_admin_by_id(session['admin_id'])
         if admin:
-            # Keep session credits fresh
-            if admin['role'] == 'superadmin':
-                session['credits'] = '∞'
-            else:
-                session['credits'] = admin.get('credits', 0)
+            session['credits'] = '∞' if admin['role'] == 'superadmin' else admin.get('credits', 0)
+            session['profile_pic'] = admin.get('profile_pic') or ''
         return admin
     return None
 
@@ -80,20 +77,18 @@ def login():
 
         admin = db.verify_admin(username, password)
         if admin:
-            # Get client IP address
             login_ip = request.headers.get('X-Forwarded-For', request.remote_addr)
             if login_ip:
-                login_ip = login_ip.split(',')[0].strip()  # Get first IP if multiple
-            
-            # Update last login IP in database
+                login_ip = login_ip.split(',')[0].strip()
             db.update_login_ip(str(admin['_id']), login_ip)
-            
+
             session['admin_id'] = str(admin['_id'])
             session['username'] = admin['username']
             session['role'] = admin['role']
             session['credits'] = '∞' if admin['role'] == 'superadmin' else admin.get('credits', 0)
+            session['profile_pic'] = admin.get('profile_pic') or ''
             flash('Login successfully.', 'login-success')
-            return redirect(url_for('dashboard.index'))
+            return redirect(url_for('announcements.index'))
         user = db.verify_app_user(username, password)
         if user:
             session['user_id'] = str(user['_id'])
@@ -136,11 +131,13 @@ def setup():
 @auth_bp.route('/user')
 @user_login_required
 def user_dashboard():
+    from models import db as _db
     user = get_current_user()
     if not user:
         session.clear()
         return redirect(url_for('auth.login'))
-    return render_template('user_dashboard.html', user=user)
+    announcements = _db.get_announcements()
+    return render_template('user_dashboard.html', user=user, announcements=announcements)
 
 
 @auth_bp.route('/logout')
