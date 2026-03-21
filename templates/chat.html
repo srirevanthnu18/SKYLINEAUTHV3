@@ -9,42 +9,40 @@ window.CHAT_ME = {
     role: {{ me.role | tojson }},
     profile_pic_url: {{ me_pic_url | tojson }}
 };
-window.CHAT_ROOM = {{ room_id | tojson if active_contact else 'null' }};
+window.CHAT_ROOM    = {{ room_id | tojson if active_contact else 'null' }};
 window.CHAT_TO_USER = {{ active_contact.username | tojson if active_contact else 'null' }};
-window.CHAT_TOKEN = {{ chat_token | tojson }};
+window.CHAT_TOKEN   = {{ chat_token | tojson }};
 </script>
-
-{# ── Reusable avatar macro: shows profile image if available, falls back to initial ── #}
-{% macro avatar(pic_url, initial, role_class, size_class='') %}
-    {% if pic_url %}
-        <img src="{{ pic_url }}" alt="{{ initial }}"
-             class="contact-avatar {{ size_class }} profile-img-avatar"
-             style="width:100%;height:100%;border-radius:50%;object-fit:cover;">
-    {% else %}
-        <div class="contact-avatar {{ role_class }} {{ size_class }}">{{ initial }}</div>
-    {% endif %}
-{% endmacro %}
 
 <div class="chat-shell">
 
-    <!-- Contact List -->
+    <!-- ── Sidebar ──────────────────────────────────────────── -->
     <aside class="chat-sidebar">
         <div class="chat-sidebar-head">
-            <span class="chat-sidebar-title">
-                <i class="fas fa-comments"></i> Messages
-            </span>
-            <span class="chat-total-badge">{{ contacts | length }}</span>
+            <div class="chat-sidebar-title-row">
+                <span class="chat-sidebar-title">
+                    <i class="fas fa-comments"></i> Messages
+                </span>
+                <span class="chat-total-badge">{{ contacts | length }}</span>
+            </div>
+            <div class="chat-search-wrap">
+                <i class="fas fa-search"></i>
+                <input class="chat-search" id="contact-search"
+                       type="text" placeholder="Search contacts…" autocomplete="off">
+            </div>
         </div>
-        <div class="chat-contacts">
+
+        <div class="chat-contacts" id="contacts-list">
             {% for c in contacts %}
             <a href="{{ url_for('chat.conversation', target_username=c.username) }}"
                class="contact-item {% if active_contact and active_contact.username == c.username %}active{% endif %}"
-               data-user="{{ c.username }}">
+               data-user="{{ c.username }}"
+               data-name="{{ c.username | lower }}">
                 <div class="contact-avatar-wrap">
                     {% if c.profile_pic_url %}
                         <img src="{{ c.profile_pic_url }}" alt="{{ c.initial }}"
-                             class="contact-avatar profile-img-avatar role-{{ c.color }}"
-                             style="object-fit:cover;">
+                             class="contact-avatar profile-img-avatar"
+                             style="object-fit:cover;width:100%;height:100%;border-radius:50%;display:block;">
                     {% else %}
                         <div class="contact-avatar role-{{ c.color }}">{{ c.initial }}</div>
                     {% endif %}
@@ -52,7 +50,9 @@ window.CHAT_TOKEN = {{ chat_token | tojson }};
                 </div>
                 <div class="contact-info">
                     <span class="contact-name">{{ c.username }}</span>
-                    <span class="role-tag role-{{ c.color }}">{{ c.display_role }}</span>
+                    <span class="contact-sub">
+                        <span class="role-tag role-{{ c.color }}" style="font-size:10px;padding:1px 7px;">{{ c.display_role }}</span>
+                    </span>
                 </div>
                 {% if c.unread > 0 %}
                 <span class="contact-unread">{{ c.unread }}</span>
@@ -61,23 +61,25 @@ window.CHAT_TOKEN = {{ chat_token | tojson }};
             {% else %}
             <div class="chat-empty-contacts">
                 <i class="fas fa-user-slash"></i>
-                <p>No contacts yet</p>
+                <p>No contacts yet.<br>Admins will appear here.</p>
             </div>
             {% endfor %}
         </div>
     </aside>
 
-    <!-- Chat Window -->
+    <!-- ── Main Window ───────────────────────────────────────── -->
     <div class="chat-main">
         {% if active_contact %}
+
         <!-- Top Bar -->
         <div class="chat-topbar">
             <div class="chat-topbar-left">
                 <div class="chat-avatar-lg-wrap">
                     {% if active_contact.profile_pic_url %}
-                        <img src="{{ active_contact.profile_pic_url }}" alt="{{ active_contact.initial }}"
+                        <img src="{{ active_contact.profile_pic_url }}"
+                             alt="{{ active_contact.initial }}"
                              class="chat-avatar-lg profile-img-avatar"
-                             style="object-fit:cover;">
+                             style="object-fit:cover;width:100%;height:100%;border-radius:50%;display:block;">
                     {% else %}
                         <div class="chat-avatar-lg role-{{ active_contact.color }}">
                             {{ active_contact.initial }}
@@ -86,12 +88,21 @@ window.CHAT_TOKEN = {{ chat_token | tojson }};
                 </div>
                 <div class="chat-topbar-info">
                     <span class="chat-topbar-name">{{ active_contact.username }}</span>
-                    <span id="chat-status-text" class="chat-status-online">Online</span>
+                    <div class="chat-status-row">
+                        <span class="chat-status-dot" id="chat-status-dot"></span>
+                        <span id="chat-status-text" class="chat-status-online">Online</span>
+                        <span class="role-tag role-{{ active_contact.color }}" style="font-size:10px;padding:1px 7px;">{{ active_contact.display_role }}</span>
+                    </div>
                 </div>
             </div>
             <div class="chat-topbar-right">
-                <span class="role-tag role-{{ active_contact.color }}">{{ active_contact.display_role }}</span>
-                <span class="chat-secure-badge"><i class="fas fa-lock"></i> E2E Secure</span>
+                <span class="chat-secure-badge"><i class="fas fa-lock"></i> Encrypted</span>
+                <button class="chat-topbar-btn" title="Search messages" onclick="void(0)">
+                    <i class="fas fa-search"></i>
+                </button>
+                <button class="chat-topbar-btn" title="More options" onclick="void(0)">
+                    <i class="fas fa-ellipsis-v"></i>
+                </button>
             </div>
         </div>
 
@@ -99,55 +110,73 @@ window.CHAT_TOKEN = {{ chat_token | tojson }};
         <div class="chat-messages-area" id="chat-messages">
             {% if not messages %}
             <div class="chat-no-msgs">
-                <i class="fas fa-comments"></i>
-                <p>Start a conversation with <strong>{{ active_contact.username }}</strong></p>
+                <div class="chat-no-msgs-icon"><i class="fas fa-paper-plane"></i></div>
+                <p>Start a conversation with<br><strong>{{ active_contact.username }}</strong></p>
             </div>
             {% endif %}
 
+            {% set ns = namespace(prev_sender='', prev_date='') %}
             {% for msg in messages %}
-            {% set is_mine = msg.from_username == me.username %}
-            {% set rc = 'admin' if msg.from_role in ['admin','superadmin'] else ('reseller' if msg.from_role == 'reseller' else 'user') %}
-            {% set pic = msg.author_pic_url if not is_mine else me_pic_url %}
-            <div class="msg-wrap {% if is_mine %}mine{% else %}theirs{% endif %}">
-                <div class="msg-avatar-wrap">
-                    {% if pic %}
-                        <img src="{{ pic }}" alt="{{ msg.from_username[0]|upper }}"
-                             class="msg-avatar profile-img-avatar"
-                             style="object-fit:cover;">
-                    {% else %}
-                        <div class="msg-avatar role-{{ rc }}">{{ msg.from_username[0]|upper }}</div>
-                    {% endif %}
-                </div>
-                <div class="msg-body">
-                    {% if not is_mine %}
-                    <div class="msg-meta">
-                        <span class="msg-name">{{ msg.from_username }}</span>
-                        <span class="role-tag role-{{ rc }}">{{ msg.from_role | replace('superadmin','Admin') | replace('admin','Admin') | replace('reseller','Reseller') | replace('user','User') }}</span>
+                {% set is_mine = msg.from_username == me.username %}
+                {% set rc = 'admin' if msg.from_role in ['admin','superadmin'] else ('reseller' if msg.from_role == 'reseller' else 'user') %}
+                {% set pic = msg.author_pic_url if not is_mine else me_pic_url %}
+                {% set msg_date = msg.timestamp.strftime('%B %d, %Y') %}
+                {% set same_sender = ns.prev_sender == msg.from_username %}
+
+                {% if msg_date != ns.prev_date %}
+                <div class="msg-date-sep">{{ msg_date }}</div>
+                {% set ns.prev_date = msg_date %}
+                {% set ns.prev_sender = '' %}
+                {% set same_sender = false %}
+                {% endif %}
+
+                <div class="msg-wrap {% if is_mine %}mine{% else %}theirs{% endif %} {% if same_sender %}group{% endif %}">
+                    {% if not same_sender %}
+                    <div class="msg-avatar-wrap">
+                        {% if pic %}
+                            <img src="{{ pic }}" alt="{{ msg.from_username[0]|upper }}"
+                                 class="msg-avatar profile-img-avatar"
+                                 style="object-fit:cover;width:100%;height:100%;display:block;border-radius:50%;">
+                        {% else %}
+                            <div class="msg-avatar role-{{ rc }}">{{ msg.from_username[0]|upper }}</div>
+                        {% endif %}
                     </div>
+                    {% else %}
+                    <div style="width:34px;flex-shrink:0;"></div>
                     {% endif %}
-                    <div class="msg-bubble">{{ msg.message }}</div>
-                    <div class="msg-time">{{ msg.timestamp.strftime('%H:%M') }}</div>
+                    <div class="msg-body">
+                        {% if not is_mine and not same_sender %}
+                        <div class="msg-meta">
+                            <span class="msg-name">{{ msg.from_username }}</span>
+                        </div>
+                        {% endif %}
+                        <div class="msg-bubble">{{ msg.message }}</div>
+                        <div class="msg-time">
+                            {{ msg.timestamp.strftime('%H:%M') }}
+                            {% if is_mine %}<i class="fas fa-check-double" style="font-size:9px;opacity:0.6;"></i>{% endif %}
+                        </div>
+                    </div>
                 </div>
-            </div>
+                {% set ns.prev_sender = msg.from_username %}
             {% endfor %}
 
             <!-- Typing Indicator -->
             <div class="msg-wrap theirs" id="typing-indicator" style="display:none;">
                 <div class="msg-avatar-wrap">
                     {% if active_contact.profile_pic_url %}
-                        <img src="{{ active_contact.profile_pic_url }}" alt="{{ active_contact.initial }}"
-                             class="msg-avatar profile-img-avatar" style="object-fit:cover;">
+                        <img src="{{ active_contact.profile_pic_url }}"
+                             alt="{{ active_contact.initial }}"
+                             class="msg-avatar profile-img-avatar"
+                             style="object-fit:cover;width:100%;height:100%;display:block;border-radius:50%;">
                     {% else %}
                         <div class="msg-avatar role-{{ active_contact.color }}">{{ active_contact.initial }}</div>
                     {% endif %}
                 </div>
                 <div class="msg-body">
                     <div class="typing-bubble">
-                        <span class="typing-name">{{ active_contact.username }}</span>
-                        <span> is typing</span>
-                        <span class="typing-dots">
-                            <span></span><span></span><span></span>
-                        </span>
+                        <span class="typing-name" id="typing-name-label">{{ active_contact.username }}</span>
+                        <span style="font-size:11.5px;margin:0 2px;">is typing</span>
+                        <span class="typing-dots"><span></span><span></span><span></span></span>
                     </div>
                 </div>
             </div>
@@ -155,34 +184,43 @@ window.CHAT_TOKEN = {{ chat_token | tojson }};
 
         <!-- Input Bar -->
         <div class="chat-input-bar">
-            <input type="text" id="chat-input" class="chat-input"
-                   placeholder="Type a message..." autocomplete="off" maxlength="2000">
-            <button id="chat-send-btn" class="chat-send-btn" title="Send">
+            <div class="chat-input-wrap">
+                <i class="fas fa-smile chat-input-icon"></i>
+                <input type="text" id="chat-input" class="chat-input"
+                       placeholder="Type a message…" autocomplete="off" maxlength="2000">
+            </div>
+            <button id="chat-send-btn" class="chat-send-btn" title="Send message">
                 <i class="fas fa-paper-plane"></i>
             </button>
         </div>
 
-        <!-- Footer Badges -->
+        <!-- Feature Badges -->
         <div class="chat-footer-badges">
-            <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time Chat</span>
+            <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time</span>
             <span class="chat-badge green"><i class="fas fa-shield-alt"></i> E2E Secure</span>
-            <span class="chat-badge purple"><i class="fas fa-history"></i> Message History</span>
+            <span class="chat-badge purple"><i class="fas fa-history"></i> History</span>
             <span class="chat-badge blue"><i class="fas fa-circle"></i> Online Status</span>
         </div>
 
         {% else %}
-        <!-- No Contact Selected -->
+        <!-- ── Welcome / No Contact Selected ─────────────────── -->
         <div class="chat-welcome">
-            <div class="chat-welcome-icon">
-                <i class="fas fa-comments"></i>
-            </div>
-            <h3>Select a conversation</h3>
-            <p>Choose a contact from the left to start chatting</p>
-            <div class="chat-footer-badges" style="justify-content:center; margin-top:20px;">
-                <span class="chat-badge red"><i class="fas fa-bolt"></i> Real-time</span>
-                <span class="chat-badge green"><i class="fas fa-shield-alt"></i> Secure</span>
-                <span class="chat-badge purple"><i class="fas fa-history"></i> History</span>
-                <span class="chat-badge blue"><i class="fas fa-circle"></i> Online Status</span>
+            <div class="chat-welcome-icon"><i class="fas fa-comments"></i></div>
+            <h3>Your Messages</h3>
+            <p>Select a contact on the left to open a conversation.</p>
+            <div class="chat-welcome-features">
+                <div class="chat-welcome-feat red">
+                    <i class="fas fa-bolt"></i> Real-time chat
+                </div>
+                <div class="chat-welcome-feat green">
+                    <i class="fas fa-shield-alt"></i> E2E Encrypted
+                </div>
+                <div class="chat-welcome-feat purple">
+                    <i class="fas fa-history"></i> Full history
+                </div>
+                <div class="chat-welcome-feat blue">
+                    <i class="fas fa-circle"></i> Online status
+                </div>
             </div>
         </div>
         {% endif %}
@@ -190,27 +228,38 @@ window.CHAT_TOKEN = {{ chat_token | tojson }};
 </div>
 
 <style>
-.profile-img-avatar {
-    border-radius: 50%;
-    display: block;
-    width: 100%;
-    height: 100%;
-}
+.profile-img-avatar { border-radius:50%; display:block; width:100%; height:100%; }
 .chat-avatar-lg-wrap {
-    width: 40px;
-    height: 40px;
+    width: 44px; height: 44px;
     border-radius: 50%;
     overflow: hidden;
     flex-shrink: 0;
-}
-.msg-avatar-wrap {
-    width: 36px;
-    height: 36px;
-    border-radius: 50%;
-    overflow: hidden;
-    flex-shrink: 0;
+    border: 2px solid rgba(139,92,246,0.3);
+    box-shadow: 0 0 16px rgba(124,58,237,0.2);
 }
 </style>
+
+<script>
+/* Contact search filter */
+document.getElementById('contact-search')?.addEventListener('input', function() {
+    const q = this.value.toLowerCase();
+    document.querySelectorAll('#contacts-list .contact-item').forEach(el => {
+        el.style.display = el.dataset.name.includes(q) ? '' : 'none';
+    });
+});
+
+/* Wire up status dot to the same toggle as status text */
+const _origStatusUpdate = window.__chatStatusUpdate;
+document.addEventListener('DOMContentLoaded', () => {
+    const dot = document.getElementById('chat-status-dot');
+    const txt = document.getElementById('chat-status-text');
+    if (!dot || !txt) return;
+    const observer = new MutationObserver(() => {
+        dot.className = 'chat-status-dot' + (txt.classList.contains('chat-status-online') ? '' : ' offline');
+    });
+    observer.observe(txt, { attributes: true });
+});
+</script>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script src="{{ url_for('static', filename='js/chat.js') }}"></script>
