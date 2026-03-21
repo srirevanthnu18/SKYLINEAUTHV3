@@ -203,13 +203,39 @@
                     <div class="form-field">
                         <label>Disabled Message</label>
                         <textarea name="app_disabled_msg" class="form-control"
-                            style="height: 80px;">{{ app.get('app_disabled_msg', 'Application is currently disabled.') }}</textarea>
+                            style="height: 60px;">{{ app.get('app_disabled_msg', 'Application is currently disabled.') }}</textarea>
+                    </div>
+                    <div class="form-field">
+                        <label>Paused Message</label>
+                        <textarea name="paused_msg" class="form-control"
+                            style="height: 60px;">{{ app.get('paused_msg', 'Application is currently paused, please wait for the developer to say otherwise.') }}</textarea>
                     </div>
                     <div class="form-field">
                         <label>Server Hash (for Checksum)</label>
                         <input type="text" name="server_hash" value="{{ app.get('server_hash', '') }}"
                             class="form-control" placeholder="Optional hex hash">
                     </div>
+                </div>
+
+                <!-- Discord Webhook -->
+                <div class="settings-group">
+                    <label class="setting-label"><i class="fab fa-discord" style="color:#5865F2;"></i> Discord Event Logging</label>
+                    <div class="form-field">
+                        <label>Discord Webhook URL</label>
+                        <input type="url" name="discord_webhook_url"
+                            value="{{ app.get('discord_webhook_url', '') }}"
+                            class="form-control"
+                            placeholder="https://discord.com/api/webhooks/...">
+                        <small style="color:var(--text-muted);font-size:0.8rem;display:block;margin-top:0.4rem;">
+                            When set, login, register, license, and error events are sent as Discord embeds to this webhook.
+                        </small>
+                    </div>
+                    {% if app.get('discord_webhook_url') %}
+                    <div style="display:flex;align-items:center;gap:0.5rem;margin-top:0.5rem;">
+                        <span style="width:8px;height:8px;background:#2ecc71;border-radius:50%;display:inline-block;"></span>
+                        <span style="color:#2ecc71;font-size:0.85rem;">Webhook configured — events are being logged</span>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
 
