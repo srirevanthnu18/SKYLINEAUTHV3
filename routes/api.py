@@ -3,6 +3,8 @@ import hashlib
 import json
 import secrets
 import base64
+import time
+import threading
 from datetime import datetime, timedelta
 from flask import Blueprint, request, jsonify, make_response
 from models import db
@@ -10,7 +12,150 @@ import discord_webhook as dw   # per-app event webhook helper
 
 api_bp = Blueprint('api', __name__, url_prefix='/api/1.2')
 
+# ── In-memory rate limiter (200 req/min per ownerid) ─────────────────────────
+_rate_store = {}
+_rate_lock  = threading.Lock()
 
+def _is_rate_limited(ownerid, limit=200, window=60):
+    """Return True if ownerid has exceeded `limit` requests in the last `window` seconds."""
+    now = time.time()
+    with _rate_lock:
+        bucket = _rate_store.get(ownerid)
+        if bucket is None:
+            _rate_store[ownerid] = {'count': 1, 'reset': now + window}
+            return False
+        if now > bucket['reset']:
+            _rate_store[ownerid] = {'count': 1, 'reset': now + window}
+            return False
+        bucket['count'] += 1
+        return bucket['count'] > limit
+
+
+# ── VPN / proxy detection (ip-api.com, free, 45 req/min) ─────────────────────
+_vpn_cache = {}
+_vpn_lock  = threading.Lock()
+
+def _is_vpn(ip):
+    """Return True if ip is detected as a proxy/VPN/hosting provider."""
+    if ip in ('127.0.0.1', '::1') or ip.startswith('192.168.') or ip.startswith('10.'):
+        return False
+    with _vpn_lock:
+        cached = _vpn_cache.get(ip)
+    if cached is not None:
+        ts, result = cached
+        if time.time() - ts < 3600:
+            return result
+    try:
+        import urllib.request as ureq
+        url = f"http://ip-api.com/json/{ip}?fields=proxy,hosting,mobile"
+        with ureq.urlopen(url, timeout=3) as r:
+            payload = json.loads(r.read())
+        result = bool(payload.get('proxy') or payload.get('hosting'))
+    except Exception:
+        result = False
+    with _vpn_lock:
+        _vpn_cache[ip] = (time.time(), result)
+    return result
+
+
+# ── Token system verification ─────────────────────────────────────────────────
+def _verify_token(token, thash, secret):
+    """
+    Verify KeyAuth token system.
+    token  = HMAC-SHA256(secret, token_data) provided by seller
+    thash  = SHA256 of client binary provided by client at init
+    The seller signs tokens with the app secret; thash binds them to a specific build.
+    Returns: 'success' | 'invalid_token' | 'hash_mismatch'
+    """
+    if not token or not thash:
+        return 'invalid_token'
+    try:
+        # Token format: base64( HMAC-SHA256(secret, thash) )
+        expected = hmac.new(
+            secret.encode() if isinstance(secret, str) else secret,
+            thash.encode()  if isinstance(thash, str)  else thash,
+            hashlib.sha256
+        ).hexdigest()
+        try:
+            decoded = base64.b64decode(token).decode()
+        except Exception:
+            decoded = token
+        if hmac.compare_digest(decoded, expected):
+            return 'success'
+        # Second form: token IS the expected hexdigest directly
+        if hmac.compare_digest(token, expected):
+            return 'success'
+        return 'invalid_token'
+    except Exception:
+        return 'invalid_token'
+
+
+# ── Custom message helper ─────────────────────────────────────────────────────
+def _msgs(app):
+    """
+    Build a dict of all custom error/success messages for this app,
+    with KeyAuth-identical defaults for every field.
+    """
+    g = app.get   # convenience
+    return {
+        'usernametaken':    g('msg_usernametaken',  'Username already taken.'),
+        'keynotfound':      g('msg_keynotfound',    'License key not found.'),
+        'keyused':          g('msg_keyused',         'License key already used.'),
+        'nosublevel':       g('msg_nosublevel',      'User has no subscription.'),
+        'usernamenotfound': g('msg_usernamenotfound','Username not found.'),
+        'passmismatch':     g('msg_passmismatch',    'Password does not match.'),
+        'hwidmismatch':     g('msg_hwidmismatch',    'Hardware ID mismatch.'),
+        'noactivesubs':     g('msg_noactivesubs',    'No active subscriptions.'),
+        'hwidblacked':      g('msg_hwidblacked',     'Your hardware ID is blacklisted.'),
+        'pausedsub':        g('msg_pausedsub',       'Subscription is paused.'),
+        'vpnblocked':       g('msg_vpnblocked',      'VPN/proxy detected. Please disable and try again.'),
+        'keybanned':        g('msg_keybanned',       'Your license key has been banned.'),
+        'userbanned':       g('msg_userbanned',      'Your account has been banned.'),
+        'sessionunauthed':  g('msg_sessionunauthed', 'Session is not authenticated.'),
+        'hashcheckfail':    g('msg_hashcheckfail',   'File on your disk is modified. Please re-download.'),
+        'tokeninvalid':     g('msg_tokeninvalid',    'Invalid token supplied.'),
+        'tokenhash':        g('msg_tokenhash',       'Token file hashes must be the same.'),
+        'loggedin':         g('msg_loggedin',        'Logged in!'),
+        'pausedapp':        g('msg_pausedapp',       app.get('paused_msg', 'Application is currently paused, please wait for the developer to say otherwise.')),
+        'appdisabled':      g('msg_appdisabled',     app.get('app_disabled_msg', 'Application is currently disabled.')),
+        'untershort':       g('msg_untershort',      'Username too short, try longer one.'),
+        'chatdelay':        g('msg_chatdelay',       "Chat slower, you've hit the delay limit."),
+    }
+
+
+def _map_error(raw_error, msgs):
+    """
+    Map raw model error strings → custom app messages.
+    This allows per-app error message customisation exactly like KeyAuth.
+    """
+    e = (raw_error or '').lower()
+    if 'username already taken' in e or 'username taken' in e:
+        return msgs['usernametaken']
+    if 'invalid license key' in e or 'license key not found' in e:
+        return msgs['keynotfound']
+    if 'license key already used' in e or 'key already used' in e:
+        return msgs['keyused']
+    if 'invalid username or password' in e and 'user' not in e:
+        return msgs['usernamenotfound']
+    if 'invalid username or password' in e:
+        return msgs['passmismatch']
+    if 'hardware id mismatch' in e or 'hwid mismatch' in e:
+        return msgs['hwidmismatch']
+    if 'blacklisted' in e and 'hwid' in e:
+        return msgs['hwidblacked']
+    if 'ban' in e and ('account' in e or 'user' in e):
+        return msgs['userbanned']
+    if 'ban' in e and ('key' in e or 'license' in e):
+        return msgs['keybanned']
+    if 'subscription' in e and 'no' in e:
+        return msgs['noactivesubs']
+    if 'username too short' in e:
+        return msgs['untershort']
+    # Fallback: return raw message unchanged
+    return raw_error
+
+
+# ── Signing ───────────────────────────────────────────────────────────────────
 def sign_response(data_json, key):
     if not key:
         return "No encryption key supplied"
@@ -33,7 +178,8 @@ def error_response(message):
 
 
 def get_ip():
-    forwarded = request.headers.get('X-Forwarded-For', '')
+    forwarded = request.headers.get('HTTP_CF_CONNECTING_IP',
+                request.headers.get('X-Forwarded-For', ''))
     if forwarded:
         return forwarded.split(',')[0].strip()
     return request.remote_addr or "0.0.0.0"
@@ -69,9 +215,7 @@ def format_user_info(user, ip):
             expiry_ts = str(int(exp.timestamp()))
             timeleft_str = str(timeleft)
         else:
-            # No expiry = Lifetime access. Use a far-future unix timestamp
-            # so SDKs that try to parse the date don't error.
-            expiry_ts = "9999999999"
+            expiry_ts    = "9999999999"
             timeleft_str = "9999999999"
 
         created_ts = "0"
@@ -87,35 +231,33 @@ def format_user_info(user, ip):
                 sub_name = 'default'
         sub_name = sub_name or 'default'
 
-        # Always include at least one subscription — SDKs index [0] directly
         subs = [{
             "subscription": sub_name,
             "expiry": expiry_ts,
             "timeleft": timeleft_str
         }]
 
-        # Use username if set, otherwise fall back to the key (license-only auth)
         username = user.get('username') or user.get('key') or "Unknown"
 
         return {
-            "username": username,
-            "ip": ip or "0.0.0.0",
-            "hwid": user.get('hwid') or '',
-            "createdate": created_ts,
-            "lastlogin": str(int(now.timestamp())),
+            "username":     username,
+            "ip":           ip or "0.0.0.0",
+            "hwid":         user.get('hwid') or '',
+            "createdate":   created_ts,
+            "lastlogin":    str(int(now.timestamp())),
             "subscriptions": subs
         }
     except Exception:
         return {
-            "username": user.get('username') or user.get('key') or "Unknown",
-            "ip": ip or "0.0.0.0",
-            "hwid": user.get('hwid') or '',
-            "createdate": "0",
-            "lastlogin": "0",
+            "username":     user.get('username') or user.get('key') or "Unknown",
+            "ip":           ip or "0.0.0.0",
+            "hwid":         user.get('hwid') or '',
+            "createdate":   "0",
+            "lastlogin":    "0",
             "subscriptions": [{
                 "subscription": "default",
-                "expiry": "9999999999",
-                "timeleft": "9999999999"
+                "expiry":       "9999999999",
+                "timeleft":     "9999999999"
             }]
         }
 
@@ -123,14 +265,21 @@ def format_user_info(user, ip):
 @api_bp.route('/', methods=['POST', 'GET'])
 def handle_api():
     try:
-        data = request.form if request.method == 'POST' else request.args
+        data     = request.form if request.method == 'POST' else request.args
         app_type = data.get('type', '').strip()
         ownerid  = data.get('ownerid', '').strip()
         name     = data.get('name', '').strip()
 
-        if not ownerid or not name:
-            return error_response("OwnerID and name are required.")
+        if not ownerid:
+            return error_response("No OwnerID specified. Select app & copy code snippet from dashboard.")
+        if not name:
+            return error_response("No app name specified. Select app & copy code snippet from dashboard.")
 
+        # ── Rate limiting (200 req / min per ownerid) ─────────────────────────
+        if _is_rate_limited(ownerid):
+            return error_response("This application has sent too many requests. Try again in a minute.")
+
+        # ── App lookup ────────────────────────────────────────────────────────
         oid = db._to_id(ownerid)
         or_clauses = [{'owner_id': ownerid}]
         if oid:
@@ -140,28 +289,74 @@ def handle_api():
 
         app = db.db.apps.find_one({'name': name, '$or': or_clauses})
         if not app:
-            return error_response("Application not found. Check your ownerid, name, and secret.")
+            return error_response("KeyAuth_Invalid")
 
         secret = app.get('secret_key', '')
+        msgs   = _msgs(app)
+
+        # ── Global app ban (ToS violation flag) ───────────────────────────────
+        if app.get('banned', False):
+            return error_response("This application has been banned for violating terms of service.")
 
         # ── Init ──────────────────────────────────────────────────────────────
         if app_type == 'init':
-            ver       = data.get('ver', '').strip()
             enckey    = data.get('enckey', '')
+            ver       = data.get('ver', '').strip()
             file_hash = data.get('hash', '')
+            ip        = get_ip()
 
+            # enckey length guard (KeyAuth enforces <= 35 chars)
+            if enckey and len(enckey) > 35:
+                return signed_response({
+                    "success": False,
+                    "message": 'The parameter "enckey" is too long. Must be 35 characters or less.'
+                }, enckey or secret)
+
+            # Force encryption check
+            if app.get('force_encryption', False) and not enckey:
+                return signed_response({
+                    "success": False,
+                    "message": "No encryption key supplied, encryption is forced."
+                }, secret)
+
+            # VPN / proxy block
+            if app.get('vpn_block', False):
+                if _is_vpn(ip):
+                    if not db.check_ip_whitelisted(app['_id'], ip):
+                        return signed_response({
+                            "success": False,
+                            "message": msgs['vpnblocked']
+                        }, enckey or secret)
+
+            # App disabled
             if not app.get('is_active', True):
                 return signed_response({
                     "success": False,
-                    "message": app.get('app_disabled_msg', 'Application disabled.')
+                    "message": msgs['appdisabled']
                 }, enckey or secret)
 
+            # App paused
             if app.get('is_paused', False):
                 return signed_response({
                     "success": False,
-                    "message": app.get('paused_msg', 'Application is currently paused, please wait for the developer to say otherwise.')
+                    "message": msgs['pausedapp']
                 }, enckey or secret)
 
+            # Token system
+            if app.get('tokensystem', False):
+                token = data.get('token', '').strip()
+                thash = data.get('thash', '').strip()
+                if not token:
+                    return signed_response({"success": False, "message": "Token must be provided."}, enckey or secret)
+                if not thash:
+                    return signed_response({"success": False, "message": "Hash must be provided."}, enckey or secret)
+                result = _verify_token(token, thash, secret)
+                if result == 'invalid_token':
+                    return signed_response({"success": False, "message": msgs['tokeninvalid']}, enckey or secret)
+                if result == 'hash_mismatch':
+                    return signed_response({"success": False, "message": msgs['tokenhash']}, enckey or secret)
+
+            # Version check
             if ver and ver != str(app.get('version', '')):
                 return signed_response({
                     "success": False,
@@ -169,11 +364,12 @@ def handle_api():
                     "download": app.get('download_link', '')
                 }, enckey or secret)
 
+            # Hash check
             if app.get('hash_check') and app.get('server_hash') and file_hash:
-                if file_hash != app['server_hash']:
+                if file_hash not in app['server_hash']:
                     return signed_response({
                         "success": False,
-                        "message": app.get('hash_check_fail_msg', 'File on your disk is modified. Please re-download.')
+                        "message": msgs['hashcheckfail']
                     }, enckey or secret)
 
             sessionid = db.create_session(app['_id'], enckey)
@@ -195,13 +391,12 @@ def handle_api():
                 "nonce": make_nonce()
             }, enckey or secret)
 
-        # ── All other actions require a valid session ─────────────────────────
+        # ── All other actions require a valid session ──────────────────────────
         sessionid = data.get('sessionid', '').strip()
         session   = db.get_session(sessionid)
         if not session:
             return signed_response({"success": False, "message": "Invalid session ID."}, secret)
 
-        # Signing key: use enckey from init if client sent one, else app secret
         enckey   = get_enckey(session)
         resp_key = enckey if enckey else secret
 
@@ -219,7 +414,23 @@ def handle_api():
 
         # ── Blacklist check ───────────────────────────────────────────────────
         if db.check_blacklisted(app['_id'], hwid=hwid or None, ip=ip or None):
-            return signed_response({"success": False, "message": "You are blacklisted."}, resp_key)
+            return signed_response({"success": False, "message": msgs['hwidblacked']}, resp_key)
+
+        # ── HWID minimum length (forceHwid + minHwid) ────────────────────────
+        min_hwid = int(app.get('minHwid', 0))
+        force_hwid = app.get('force_hwid', False)
+
+        if force_hwid and not hwid:
+            return signed_response({
+                "success": False,
+                "message": "Hardware ID is required for this application."
+            }, resp_key)
+
+        if min_hwid and hwid and len(hwid) < min_hwid:
+            return signed_response({
+                "success": False,
+                "message": f"Hardware ID is too short. Minimum length is {min_hwid} characters."
+            }, resp_key)
 
         # ── Login ─────────────────────────────────────────────────────────────
         if app_type == 'login':
@@ -227,12 +438,13 @@ def handle_api():
             password = data.get('pass', '')
             user, error = db.api_login(secret, username, password, hwid)
             if error:
+                mapped = _map_error(error, msgs)
                 dw.send_event(
                     app.get('discord_webhook_url', ''), 'error',
                     username or 'Unknown', ip, app['name'],
                     {'Reason': error, 'Action': 'Login Failed'}
                 )
-                return signed_response({"success": False, "message": error}, resp_key)
+                return signed_response({"success": False, "message": mapped}, resp_key)
             db.set_session_validated(sessionid, username)
             db.add_log(app['_id'], username, f"Logged in from {ip}", ip)
             dw.send_event(
@@ -242,7 +454,7 @@ def handle_api():
             )
             return signed_response({
                 "success": True,
-                "message": "Logged in!",
+                "message": msgs['loggedin'],
                 "info": format_user_info(user, ip),
                 "sessionid": sessionid,
                 "nonce": make_nonce()
@@ -256,12 +468,13 @@ def handle_api():
             email       = data.get('email', '').strip()
             user, error = db.api_register(secret, username, password, license_key, hwid, email)
             if error:
+                mapped = _map_error(error, msgs)
                 dw.send_event(
                     app.get('discord_webhook_url', ''), 'error',
                     username or 'Unknown', ip, app['name'],
                     {'Reason': error, 'Action': 'Register Failed', 'Key': license_key or 'N/A'}
                 )
-                return signed_response({"success": False, "message": error}, resp_key)
+                return signed_response({"success": False, "message": mapped}, resp_key)
             db.set_session_validated(sessionid, username)
             db.add_log(app['_id'], username, f"Registered with key {license_key} from {ip}", ip)
             dw.send_event(
@@ -271,7 +484,7 @@ def handle_api():
             )
             return signed_response({
                 "success": True,
-                "message": "Logged in!",
+                "message": msgs['loggedin'],
                 "info": format_user_info(user, ip),
                 "sessionid": sessionid,
                 "nonce": make_nonce()
@@ -282,12 +495,13 @@ def handle_api():
             license_key = data.get('key', '').strip()
             user, error = db.api_license(secret, license_key, hwid)
             if error:
+                mapped = _map_error(error, msgs)
                 dw.send_event(
                     app.get('discord_webhook_url', ''), 'error',
                     license_key or 'Unknown', ip, app['name'],
                     {'Reason': error, 'Action': 'License Auth Failed'}
                 )
-                return signed_response({"success": False, "message": error}, resp_key)
+                return signed_response({"success": False, "message": mapped}, resp_key)
             db.set_session_validated(sessionid, license_key)
             db.add_log(app['_id'], license_key, f"License auth from {ip}", ip)
             dw.send_event(
@@ -297,7 +511,7 @@ def handle_api():
             )
             return signed_response({
                 "success": True,
-                "message": "Logged in!",
+                "message": msgs['loggedin'],
                 "info": format_user_info(user, ip),
                 "sessionid": sessionid,
                 "nonce": make_nonce()
@@ -321,10 +535,10 @@ def handle_api():
                     '$or': [{'username': {'$exists': False}}, {'username': ''}]
                 })
             if not upgrade_key:
-                return signed_response({"success": False, "message": "Upgrade key not found or already used."}, resp_key)
+                return signed_response({"success": False, "message": msgs['keynotfound']}, resp_key)
             existing = db.db.app_users.find_one({'app_id': app['_id'], 'username': username, 'is_active': True})
             if not existing:
-                return signed_response({"success": False, "message": "User not found."}, resp_key)
+                return signed_response({"success": False, "message": msgs['usernamenotfound']}, resp_key)
             base = existing.get('expiry') or datetime.utcnow()
             if base < datetime.utcnow():
                 base = datetime.utcnow()
@@ -353,7 +567,7 @@ def handle_api():
         if not session.get('validated'):
             return signed_response({
                 "success": False,
-                "message": "Session is not authenticated. Please login or use a license first."
+                "message": msgs['sessionunauthed']
             }, resp_key)
 
         credential = session.get('credential', '')
@@ -457,7 +671,7 @@ def handle_api():
                 return signed_response({"success": False, "message": "New username is required."}, resp_key)
             ok, result = db.api_change_username(app['_id'], credential, new_username)
             if result == 'already_used':
-                return signed_response({"success": False, "message": "Username already used!"}, resp_key)
+                return signed_response({"success": False, "message": msgs['usernametaken']}, resp_key)
             elif result == 'success':
                 db.delete_session(sessionid)
                 return signed_response({"success": True, "message": "Successfully changed username, user logged out.", "nonce": make_nonce()}, resp_key)
@@ -471,7 +685,7 @@ def handle_api():
             if not webhook_doc:
                 return signed_response({"success": False, "message": "Webhook Not Found."}, resp_key)
             if webhook_doc.get('authed') and not session.get('validated'):
-                return signed_response({"success": False, "message": "Session is not authenticated."}, resp_key)
+                return signed_response({"success": False, "message": msgs['sessionunauthed']}, resp_key)
             baselink = webhook_doc.get('url', '')
             params   = data.get('params', '')
             body     = data.get('body', '')
@@ -503,7 +717,7 @@ def handle_api():
             if not file_doc:
                 return signed_response({"success": False, "message": "File not Found"}, resp_key)
             if file_doc.get('authed') and not session.get('validated'):
-                return signed_response({"success": False, "message": "Session is not authenticated."}, resp_key)
+                return signed_response({"success": False, "message": msgs['sessionunauthed']}, resp_key)
             try:
                 import requests as req_lib
                 r = req_lib.get(file_doc['url'], timeout=30, allow_redirects=True)
@@ -522,9 +736,9 @@ def handle_api():
         # ── Chat: Get ─────────────────────────────────────────────────────────
         if app_type == 'chatget':
             channel = data.get('channel', 'global')
-            msgs    = db.get_chat_messages(app['_id'], channel)
+            msgs_list = db.get_chat_messages(app['_id'], channel)
             formatted = []
-            for m in msgs:
+            for m in msgs_list:
                 try:
                     ts = str(int(m['timestamp'].timestamp())) if hasattr(m.get('timestamp'), 'timestamp') else "0"
                 except Exception:
@@ -549,9 +763,9 @@ def handle_api():
                 return signed_response({"success": False, "message": "Message can't be blank"}, resp_key)
             if db.send_chat_message(app['_id'], channel, credential, message):
                 return signed_response({"success": True, "message": "Successfully sent chat message", "nonce": make_nonce()}, resp_key)
-            return signed_response({"success": False, "message": "Failed to send message."}, resp_key)
+            return signed_response({"success": False, "message": msgs['chatdelay']}, resp_key)
 
-        return signed_response({"success": False, "message": f"The value inputted for type paramater was not found"}, resp_key)
+        return signed_response({"success": False, "message": "The value inputted for type parameter was not found"}, resp_key)
 
     except Exception as e:
         import traceback
@@ -563,4 +777,4 @@ def handle_api():
             resp = make_response(json.dumps({"success": False, "message": f"Server error: {str(e)}"}, separators=(',', ':')))
             resp.headers['Content-Type'] = 'application/json'
             resp.headers['signature'] = ''
-            return resp, 500
+            return resp
