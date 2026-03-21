@@ -27,30 +27,13 @@
                 <i class="fas fa-chart-pie"></i><span>Overview</span>
             </a>
 
-            {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
             <a href="{{ url_for('announcements.index') }}"
                class="nav-item {% if request.endpoint and 'announcements' in request.endpoint %}active{% endif %}">
                 <i class="fas fa-bullhorn"></i><span>Announcements</span>
             </a>
-            {% endif %}
-
-            {% if session.get('role') == 'user' %}
-            <a href="{{ url_for('user_files.index') }}"
-               class="nav-item {% if request.endpoint == 'user_files.index' %}active{% endif %}">
-                <i class="fas fa-cloud-download-alt"></i><span>Downloads</span>
-            </a>
-            {% endif %}
-
-            <a href="{{ url_for('chat.index') }}"
-               class="nav-item {% if request.endpoint and 'chat' in request.endpoint %}active{% endif %}">
-                <i class="fas fa-comments"></i>
-                <span>Messages</span>
-                <span id="chat-sidebar-badge" style="display:none;
-                    background:linear-gradient(135deg,#00d9ff,#7c3aed);
-                    color:#fff; font-size:10px; font-weight:800; min-width:17px; height:17px;
-                    border-radius:999px; align-items:center; justify-content:center;
-                    padding:0 4px; margin-left:auto;">
-                </span>
+            <a href="{{ url_for('files.index') }}"
+               class="nav-item {% if request.endpoint and 'files' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-folder-open"></i><span>Files</span>
             </a>
 
             {% if session.get('role') in ['superadmin', 'admin'] %}
@@ -93,6 +76,12 @@
 
             {% if session.get('role') in ['superadmin', 'admin', 'reseller'] %}
             <div class="nav-section-label">Account</div>
+            <a href="{{ url_for('chat.index') }}"
+               class="nav-item {% if request.endpoint and 'chat' in request.endpoint %}active{% endif %}">
+                <i class="fas fa-comments"></i>
+                <span>Messages</span>
+                <span id="chat-sidebar-badge"></span>
+            </a>
             <a href="{{ url_for('profile.index') }}"
                class="nav-item {% if request.endpoint and 'profile' in request.endpoint %}active{% endif %}">
                 <i class="fas fa-user-circle"></i><span>Profile</span>
@@ -103,8 +92,20 @@
         <div class="sidebar-footer">
             <!-- User Info -->
             <div class="sidebar-user">
-                <div class="sidebar-user-avatar">
-                    {{ session.get('username', 'U')[0]|upper }}
+                <div class="sidebar-user-avatar" style="overflow:hidden; padding:0; background:var(--sidebar-bg);">
+                    {% if session.get('profile_pic') %}
+                    <img src="/static/uploads/{{ session.get('profile_pic') }}"
+                         alt="avatar"
+                         style="width:100%; height:100%; object-fit:cover; border-radius:50%;"
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';">
+                    <span style="display:none; width:100%; height:100%; align-items:center; justify-content:center; font-size:16px; font-weight:700;">
+                        {{ session.get('username', 'U')[0]|upper }}
+                    </span>
+                    {% else %}
+                    <span style="display:flex; width:100%; height:100%; align-items:center; justify-content:center; font-size:16px; font-weight:700;">
+                        {{ session.get('username', 'U')[0]|upper }}
+                    </span>
+                    {% endif %}
                 </div>
                 <div class="sidebar-user-info">
                     <div class="sidebar-user-name">{{ session.get('username', 'User') }}</div>
@@ -158,43 +159,98 @@
 </div>
 
 <script src="{{ url_for('static', filename='js/main.js') }}"></script>
-
 {% if session.get('admin_id') or session.get('user_id') %}
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
 <script>
 (function(){
     var badge = document.getElementById('chat-sidebar-badge');
-    if (!badge) return;
-    function sync(n) {
-        if (n > 0) {
-            badge.textContent = n > 99 ? '99+' : n;
-            badge.style.display = 'flex';
-        } else {
-            badge.textContent = '';
-            badge.style.display = 'none';
-        }
+    if(!badge) return;
+    function loadUnread(){
+        fetch('/chat/api/unread').then(function(r){ return r.json(); }).then(function(d){
+            if(d.unread > 0){
+                badge.textContent = d.unread;
+                badge.style.display = 'flex';
+            } else {
+                badge.textContent = '';
+                badge.style.display = 'none';
+            }
+        }).catch(function(){});
     }
-    function load() {
-        fetch('/chat/api/unread')
-            .then(function(r){ return r.json(); })
-            .then(function(d){ sync(d.unread || 0); })
-            .catch(function(){});
-    }
-    load();
-    setInterval(load, 20000);
-
-    /* Live bump via socket when on other pages */
-    try {
-        var sock = io({ transports: ['websocket','polling'] });
-        sock.on('message_notification', function(data) {
-            var cur = parseInt(badge.textContent || '0') + 1;
-            sync(cur);
-        });
-    } catch(e) {}
+    loadUnread();
+    setInterval(loadUnread, 30000);
 })();
 </script>
 {% endif %}
-
 {% block scripts %}{% endblock %}
+
+{% if session.get('admin_id') or session.get('user_id') %}
+<!-- Auto-logout after 3 minutes of inactivity -->
+<div id="autologout-overlay" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:99999; align-items:center; justify-content:center;">
+    <div style="background:var(--card-bg,#1a1a2e); border:1px solid rgba(0,217,255,0.3); border-radius:16px; padding:36px 40px; max-width:380px; width:90%; text-align:center; box-shadow:0 0 40px rgba(0,217,255,0.15);">
+        <div style="font-size:48px; margin-bottom:12px;">⏱️</div>
+        <h3 style="color:#00d9ff; margin:0 0 8px; font-size:20px;">Session Expiring</h3>
+        <p style="color:#aaa; margin:0 0 20px; font-size:14px; line-height:1.5;">You will be automatically signed out in</p>
+        <div id="autologout-countdown" style="font-size:48px; font-weight:700; color:#f59e0b; margin-bottom:20px; font-variant-numeric:tabular-nums;">30</div>
+        <p style="color:#888; font-size:13px; margin:0 0 24px;">seconds due to inactivity</p>
+        <button onclick="window.resetAutoLogout && window.resetAutoLogout()"
+                style="background:linear-gradient(135deg,#00d9ff,#7c3aed); border:none; color:#fff; padding:12px 32px; border-radius:8px; font-size:15px; font-weight:600; cursor:pointer; width:100%;">
+            Stay Signed In
+        </button>
+    </div>
+</div>
+
+<script>
+(function(){
+    var IDLE_TIMEOUT   = 180;
+    var WARN_BEFORE    = 30;
+    var WARN_AT        = IDLE_TIMEOUT - WARN_BEFORE;
+    var logoutUrl      = "{{ url_for('auth.logout') }}";
+    var timer          = 0;
+    var warnShown      = false;
+    var overlay        = document.getElementById('autologout-overlay');
+    var countdownEl    = document.getElementById('autologout-countdown');
+    var tickInterval   = null;
+
+    function showWarning(){
+        if(warnShown) return;
+        warnShown = true;
+        overlay.style.display = 'flex';
+    }
+
+    function hideWarning(){
+        warnShown = false;
+        overlay.style.display = 'none';
+    }
+
+    function tick(){
+        timer++;
+        if(timer >= IDLE_TIMEOUT){
+            clearInterval(tickInterval);
+            window.location.href = logoutUrl;
+            return;
+        }
+        if(timer >= WARN_AT){
+            showWarning();
+            var remaining = IDLE_TIMEOUT - timer;
+            if(countdownEl) countdownEl.textContent = remaining;
+        }
+    }
+
+    function reset(){
+        timer = 0;
+        hideWarning();
+    }
+
+    window.resetAutoLogout = reset;
+
+    tickInterval = setInterval(tick, 1000);
+
+    var events = ['mousemove','mousedown','keydown','touchstart','scroll','click'];
+    events.forEach(function(e){
+        document.addEventListener(e, reset, {passive:true});
+    });
+})();
+</script>
+{% endif %}
 </body>
 </html>
