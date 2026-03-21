@@ -81,7 +81,8 @@ def files(app_id):
 def create_file(app_id):
     name = request.form.get('name')
     url = request.form.get('url')
-    db.create_file(app_id, name, url)
+    authed = request.form.get('authed') == 'on'
+    db.create_file(app_id, name, url, authed=authed)
     flash('File entry created.', 'success')
     return redirect(url_for('apps_extra.files', app_id=app_id))
 
