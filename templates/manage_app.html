@@ -145,32 +145,52 @@
                     </div>
                     <div class="toggle-container">
                         <label class="switch">
+                            <input type="checkbox" name="banned" {{ 'checked' if app.get('banned', False) }}>
+                            <span class="slider round"></span>
+                        </label>
+                        <span style="color:#ff6b6b;">Banned (ToS Violation)</span>
+                    </div>
+                    <div class="toggle-container">
+                        <label class="switch">
                             <input type="checkbox" name="hwid_check" {{ 'checked' if app.get('hwid_check', True) }}>
                             <span class="slider round"></span>
                         </label>
-                        <span>HWID Check</span>
+                        <span>HWID Check (lock to machine)</span>
+                    </div>
+                    <div class="toggle-container">
+                        <label class="switch">
+                            <input type="checkbox" name="force_hwid" {{ 'checked' if app.get('force_hwid', False) }}>
+                            <span class="slider round"></span>
+                        </label>
+                        <span>Force HWID (require HWID in all requests)</span>
                     </div>
                     <div class="toggle-container">
                         <label class="switch">
                             <input type="checkbox" name="vpn_block" {{ 'checked' if app.get('vpn_block', False) }}>
                             <span class="slider round"></span>
                         </label>
-                        <span>VPN Block</span>
+                        <span>VPN / Proxy Block</span>
                     </div>
                     <div class="toggle-container">
                         <label class="switch">
                             <input type="checkbox" name="hash_check" {{ 'checked' if app.get('hash_check', False) }}>
                             <span class="slider round"></span>
                         </label>
-                        <span>Hash Check</span>
+                        <span>Hash Check (file integrity)</span>
                     </div>
                     <div class="toggle-container">
                         <label class="switch">
-                            <input type="checkbox" name="force_encryption" {{ 'checked' if app.get('force_encryption',
-                                False) }}>
+                            <input type="checkbox" name="force_encryption" {{ 'checked' if app.get('force_encryption', False) }}>
                             <span class="slider round"></span>
                         </label>
-                        <span>Force Encryption</span>
+                        <span>Force Encryption (require enckey at init)</span>
+                    </div>
+                    <div class="toggle-container">
+                        <label class="switch">
+                            <input type="checkbox" name="tokensystem" {{ 'checked' if app.get('tokensystem', False) }}>
+                            <span class="slider round"></span>
+                        </label>
+                        <span>Token System (verify token+thash at init)</span>
                     </div>
                 </div>
 
@@ -237,6 +257,54 @@
                     </div>
                     {% endif %}
                 </div>
+            </div><!-- end settings-grid -->
+
+            <!-- Custom Error Messages (KeyAuth parity) -->
+            <div style="margin-top: 2rem; border-top: 1px solid rgba(255,255,255,0.08); padding-top: 1.5rem;">
+                <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.25rem;cursor:pointer;" onclick="toggleMsgs()">
+                    <i class="fas fa-comment-alt" style="color:var(--primary);"></i>
+                    <h4 style="margin:0;font-size:1rem;color:var(--text-light);">Custom Error Messages</h4>
+                    <span style="color:var(--text-muted);font-size:0.82rem;margin-left:0.5rem;">(leave blank for defaults)</span>
+                    <i id="msgs-chevron" class="fas fa-chevron-down" style="margin-left:auto;color:var(--text-muted);transition:transform 0.2s;"></i>
+                </div>
+                <div id="msgs-panel" style="display:none;">
+                    <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:1rem;">
+                        {% set msg_fields = [
+                            ('msg_loggedin',         'Login Success Message',         'Logged in!'),
+                            ('msg_usernametaken',    'Username Already Taken',        'Username already taken.'),
+                            ('msg_usernamenotfound', 'Username Not Found',            'Username not found.'),
+                            ('msg_passmismatch',     'Password Mismatch',             'Password does not match.'),
+                            ('msg_keynotfound',      'License Key Not Found',         'License key not found.'),
+                            ('msg_keyused',          'License Key Already Used',      'License key already used.'),
+                            ('msg_hwidmismatch',     'Hardware ID Mismatch',          'Hardware ID mismatch.'),
+                            ('msg_hwidblacked',      'HWID Blacklisted',              'Your hardware ID is blacklisted.'),
+                            ('msg_userbanned',       'User Banned',                   'Your account has been banned.'),
+                            ('msg_keybanned',        'Key Banned',                    'Your license key has been banned.'),
+                            ('msg_vpnblocked',       'VPN / Proxy Blocked',           'VPN/proxy detected. Please disable and try again.'),
+                            ('msg_noactivesubs',     'No Active Subscriptions',       'No active subscriptions.'),
+                            ('msg_nosublevel',       'No Subscription Level',         'User has no subscription.'),
+                            ('msg_pausedsub',        'Subscription Paused',           'Subscription is paused.'),
+                            ('msg_hashcheckfail',    'Hash Check Failure',            'File on your disk is modified. Please re-download.'),
+                            ('msg_sessionunauthed',  'Session Not Authenticated',     'Session is not authenticated.'),
+                            ('msg_appdisabled',      'App Disabled Message',          'Application is currently disabled.'),
+                            ('msg_pausedapp',        'App Paused Message',            'Application is currently paused, please wait for the developer to say otherwise.'),
+                            ('msg_tokeninvalid',     'Token Invalid',                 'Invalid token supplied.'),
+                            ('msg_tokenhash',        'Token Hash Mismatch',           'Token file hashes must be the same.'),
+                            ('msg_untershort',       'Username Too Short',            'Username too short, try longer one.'),
+                            ('msg_chatdelay',        'Chat Rate Limit Hit',           "Chat slower, you've hit the delay limit."),
+                        ] %}
+                        {% for field, label, placeholder in msg_fields %}
+                        <div class="form-field">
+                            <label style="font-size:0.8rem;color:var(--text-muted);">{{ label }}</label>
+                            <input type="text" name="{{ field }}"
+                                value="{{ app.get(field, '') }}"
+                                placeholder="{{ placeholder }}"
+                                class="form-control"
+                                style="font-size:0.85rem;">
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
             </div>
 
             <div style="margin-top: 2rem; text-align: right;">
@@ -247,6 +315,27 @@
         </form>
     </div>
 </div>
+
+<script>
+function toggleMsgs() {
+    var panel = document.getElementById('msgs-panel');
+    var chevron = document.getElementById('msgs-chevron');
+    if (panel.style.display === 'none') {
+        panel.style.display = 'block';
+        chevron.style.transform = 'rotate(180deg)';
+    } else {
+        panel.style.display = 'none';
+        chevron.style.transform = 'rotate(0deg)';
+    }
+}
+// Auto-open if any custom message is already set
+(function() {
+    var inputs = document.querySelectorAll('#msgs-panel input[type=text]');
+    for (var i = 0; i < inputs.length; i++) {
+        if (inputs[i].value.trim()) { toggleMsgs(); break; }
+    }
+})();
+</script>
 
 <style>
     .settings-group {
